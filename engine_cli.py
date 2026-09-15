@@ -21,8 +21,11 @@ Output komputasi JSON pada stdout. Kode keluar: 0/sukses, 1/arg, 2/error.
 from __future__ import annotations
 import argparse
 import json
+import os
 import sys
+import threading
 import warnings
+from dataclasses import dataclass, field
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
@@ -38,8 +41,19 @@ import matplotlib.pyplot as plt
 from thermoapp import engine, ellingham, ttt, gibbs, pourbaix
 
 
+# Buffer per-perintah (dipakai mode daemon) supaya tiap command menghasilkan
+# tepat satu baris JSON di stdout — aman dari output matplotlib/pycalphad lain.
+# Thread-local: worker daemon yang berjalan paralel tidak saling menimpa.
+_DAEMON_LOCAL = threading.local()
+
+
 def _emit(data: dict) -> None:
-    print(json.dumps(data, ensure_ascii=False))
+    line = json.dumps(data, ensure_ascii=False)
+    buf = getattr(_DAEMON_LOCAL, "buf", None)
+    if buf is not None:
+        buf.append(line)
+    else:
+        print(line, flush=True)
 
 
 def cmd_databases(_args):
@@ -153,7 +167,14 @@ def cmd_pourbaix(args):
     return 0
 
 
-def main() -> int:
+def cmd_labels(args):
+    _emit({"oxidation": ellingham.oxidation_labels(),
+           "reductants": ellingham.reductant_labels(),
+           "species": engine.reaction_species()})
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="ThermoApp engine CLI")
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("databases")
@@ -190,19 +211,131 @@ def main() -> int:
     pb = sub.add_parser("pourbaix")
     pb.add_argument("--out", required=True)
 
+    sub.add_parser("labels")
+
+    return p
+
+
+_HANDLERS = {
+    "databases": cmd_databases, "equilibrium": cmd_equilibrium,
+    "reaction": cmd_reaction, "phasediagram": cmd_phasediagram,
+    "ellingham": cmd_ellingham, "ttt": cmd_ttt,
+    "gibbs": cmd_gibbs, "pourbaix": cmd_pourbaix,
+    "labels": cmd_labels,
+}
+
+
+def main() -> int:
+    p = build_parser()
     args = p.parse_args()
-    handlers = {
-        "databases": cmd_databases, "equilibrium": cmd_equilibrium,
-        "reaction": cmd_reaction, "phasediagram": cmd_phasediagram,
-        "ellingham": cmd_ellingham, "ttt": cmd_ttt,
-        "gibbs": cmd_gibbs, "pourbaix": cmd_pourbaix,
-    }
-    return handlers[args.command](args)
+    return _HANDLERS[args.command](args)
+
+
+@dataclass
+class _DaemonReq:
+    req_id: int
+    cmd: str
+    args: dict
+    argv: list
+
+
+def _convert_args(cmd: str, args: dict) -> list:
+    """Ubah {k: v} menjadi argv JSON yang bisa di-parse argparse
+    (memakai ulang build_parser sehingga handler/kode tak berubah)."""
+    argv = [cmd]
+    for k, v in sorted(args.items()):
+        key = "--" + k
+        if isinstance(v, (list, dict)):
+            argv += [key, json.dumps(v, ensure_ascii=False)]
+        elif v is not None:
+            argv += [key, str(v)]
+    return argv
+
+
+def _run_one(parser, req):
+    """Eksekusi satu permintaan; keluarkan satu baris JSON {id, ok, ...}."""
+    buf: list[str] = []
+    _DAEMON_LOCAL.buf = buf
+    try:
+        args = parser.parse_args(req.argv)
+        _HANDLERS[args.command](args)
+    except SystemExit:
+        # parse_args gagal (arg required tidak ada) -> balas error
+        buf = [json.dumps({"ok": False, "error": "argumen tidak lengkap",
+                           "command": req.cmd})]
+    except Exception as e:  # noqa: BLE001 — semua error jadi satu baris JSON
+        buf = [json.dumps({"ok": False, "error": str(e), "command": req.cmd})]
+    finally:
+        _DAEMON_LOCAL.buf = None
+    body = buf[-1] if buf else json.dumps({"ok": False,
+                                           "error": "tidak ada output"})
+    # tambahkan id untuk pairing dengan permintaan asal
+    payload = json.loads(body)
+    payload["id"] = req.req_id
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def run_daemon() -> int:
+    """Loop persisten: baca {id, cmd, args} per baris dari stdin,
+    jalankan dengan ThreadPoolExecutor (pakai semua core), tulis satu baris
+    JSON {id, ok, ...} per permintaan ke stdout (boleh out-of-order)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    parser = build_parser()
+    futures = {}
+    executor = ThreadPoolExecutor(max_workers=os.cpu_count() or 4)
+    pending = 0
+    try:
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                req = json.loads(line)
+            except json.JSONDecodeError:
+                print(json.dumps({"id": None, "ok": False,
+                                  "error": "JSON tidak valid"}), flush=True)
+                continue
+            cmd = req.get("command") or req.get("cmd")
+            if cmd in ("shutdown", "exit"):
+                break
+            dreq = _DaemonReq(req_id=req.get("id", 0), cmd=cmd or "",
+                              args=req.get("args", {}),
+                              argv=_convert_args(cmd or "", req.get("args", {})))
+            fut = executor.submit(_run_one, parser, dreq)
+            futures[fut] = dreq.req_id
+            pending += 1
+
+            # kembali hasil yang sudah kelar (out-of-order OK)
+            done = [f for f in futures if f.done()]
+            for f in done:
+                try:
+                    print(f.result(), flush=True)
+                finally:
+                    futures.pop(f, None)
+    finally:
+        # tunggu sisa job & tutup executor
+        for f in futures:
+            try:
+                print(f.result(), flush=True)
+            except Exception:  # noqa: BLE001
+                pass
+        executor.shutdown(wait=False, cancel_futures=False)
+    return 0
 
 
 if __name__ == "__main__":
+    # Mode daemon: `engine_runner --daemon` / `python engine_cli.py --daemon`
+    if "--daemon" in sys.argv[1:]:
+        try:
+            sys.exit(run_daemon())
+        except Exception as e:
+            print(json.dumps({"error": f"Daemon error: {e}"}), flush=True)
+            sys.exit(2)
     try:
         sys.exit(main())
+    except SystemExit:
+        raise
     except Exception as e:
         print(json.dumps({"error": f"Internal error: {e}"}))
         sys.exit(2)

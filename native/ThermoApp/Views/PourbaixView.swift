@@ -11,12 +11,13 @@ struct PourbaixView: View {
             VStack(alignment: .leading, spacing: 16) {
                     Text("Diagram Pourbaix (E-pH) - Fe/H2O")
                         .font(.title.bold())
-                    Text("Diagram stabilitas elektrokimia besi pada 25 C. Garis air (O2/H2O, H2O/H2) dan garis keseimbangan Fe/Fe2+/Fe3+. Untuk studi korosi.")
+                    Text("Diagram stabilitas elektrokimia besi pada 25 °C: garis air (O2/H2O, H2O/H2), garis keseimbangan Fe/Fe2+/Fe3+, serta batas fasa padat Fe3O4 dan Fe2O3. Untuk studi korosi.")
                         .font(.caption).foregroundColor(.secondary)
                     Button("Gambar Diagram Pourbaix") { doRender() }.buttonStyle(.borderedProminent)
                     result
             }.padding(20)
         }
+        .onAppear { doRender() }
     }
 
     func makeView() -> PlotResultView {

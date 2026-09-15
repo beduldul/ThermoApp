@@ -15,7 +15,7 @@ struct TTTView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Diagram TTT (Time-Temperature-Transformation)")
                     .font(.title.bold())
-                Text("Kurva transformasi austenit untuk baja karbon (model Kirkaldy pend. pendidikan). Sumbu-x log waktu. Menunjukkan nose, kurva start (1%) & finish (99%), serta garis Ms/Mf.")
+                Text("Kurva transformasi austenit untuk baja karbon (model pendidikan, fenomenologis). Sumbu-x log waktu. Menunjukkan nose, kurva start (1%) & finish (99%), serta garis Ms/Mf.")
                     .font(.caption).foregroundColor(.secondary)
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -29,6 +29,7 @@ struct TTTView: View {
                 result
             }.padding(20)
         }
+        .onAppear { doRender() }
     }
 
     func row(_ name: String, _ v: Binding<Double>) -> some View {

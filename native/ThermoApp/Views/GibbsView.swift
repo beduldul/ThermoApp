@@ -15,7 +15,7 @@ struct GibbsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Energi Gibbs vs Temperatur (stabilitas senyawa)")
                     .font(.title.bold())
-                Text("dG pembentukan dari unsur untuk berbagai senyawa (oksida, karbida, nitrida, sulfida, klorida). Semakin negatif, semakin stabil.")
+                Text("ΔG pembentukan dari unsur untuk berbagai senyawa (oksida, karbida, nitrida, sulfida, klorida). Semakin negatif, semakin stabil.")
                     .font(.caption).foregroundColor(.secondary)
 
                 Text("Kategori senyawa").font(.headline)
@@ -31,11 +31,12 @@ struct GibbsView: View {
                 HStack {
                     Text("T min (K)"); TextField("", value: $tmin, format: .number).textFieldStyle(.roundedBorder).frame(width: 90)
                     Text("T max (K)"); TextField("", value: $tmax, format: .number).textFieldStyle(.roundedBorder).frame(width: 90)
-                    Button("Gambar Plot") { doRender() }.buttonStyle(.borderedProminent)
+                    Button("Gambar Diagram") { doRender() }.buttonStyle(.borderedProminent)
                 }
                 result
             }.padding(20)
         }
+        .onAppear { doRender() }
     }
 
     func makeView() -> PlotResultView {

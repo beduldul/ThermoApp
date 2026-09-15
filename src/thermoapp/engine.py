@@ -162,11 +162,29 @@ def compute_equilibrium(
     if not composition:
         raise ValueError("Komposisi tidak boleh kosong")
 
-    norm = sum(composition.values())
-    comp = {el: f / norm for el, f in composition.items()}
-
     db, meta = load_database(db_id)
-    species = list(comp.keys())
+    db_elements = meta["elements"]            # huruf besar: ['AL','NI',...]
+    elem_set = set(db_elements)
+
+    # Normalisasi kunci komposisi ke simbologi elemen database (huruf besar).
+    norm_comp: dict[str, float] = {}
+    for el, f in composition.items():
+        key = el.strip().upper()
+        if key in elem_set:
+            norm_comp[key] = norm_comp.get(key, 0.0) + float(f)
+    if not norm_comp:
+        raise ValueError(f"Tidak ada elemen valid dari komposisi {composition} "
+                         f"(database {db_id} only has {db_elements})")
+
+    total = sum(norm_comp.values())
+    if total <= 0:
+        raise ValueError("Fraksi komposisi harus positif.")
+    comp = {el: f / total for el, f in norm_comp.items()}
+
+    # Species untuk pycalphad: elemen aktif (huruf besar) + vacancy (VA).
+    # Tanpa VA, koordinat 'component' pycalphad tidak terisi penuh dan
+    # lower_convex_hull gagal ('X is not in list').
+    species = sorted(comp.keys()) + [_VACANCY]
 
     # Kondisi komposisi: pycalphad membutuhkan kondisi independen.
     # Untuk sistem dengan N elemen aktif, berikan fraksi untuk (N-1) elemen
@@ -177,7 +195,7 @@ def compute_equilibrium(
         v.T: temperature,
         v.N: 1.0,  # total 1 mol
     }
-    active = list(comp.keys())
+    active = sorted(comp.keys())
     for el in active[:-1]:
         conds[v.X(el)] = comp[el]
 
@@ -197,6 +215,7 @@ def compute_equilibrium(
 
     phase_names = []
     fractions = []
+    per_vertex: list[tuple[str, float]] = []  # (fasa, fraksi) per vertex
     for ph, frac in zip(phases_slots, frac_slots):
         name = str(ph)
         if name in ("", "nan", "None") or np.isnan(frac):
@@ -205,6 +224,7 @@ def compute_equilibrium(
             continue
         phase_names.append(name)
         fractions.append(float(frac))
+        per_vertex.append((name, float(frac)))
 
     # Konsolidasi fase duplikat (pycalphad bisa membagi satu fase atas beberapa
     # vertex sublattice). Gabungkan fraksi untuk nama fase yang sama.
@@ -220,26 +240,46 @@ def compute_equilibrium(
 
     # Komposisi tiap fasa dari eq.X. eq.X memiliki koordinat 'component'
     # (urutan elemen) dan 'vertex' (fasa). Nilai dummy (nan) = fasa tidak aktif.
-    components = list(eq.X.coords["component"].values)
+    # PENTING: satu fase bisa menempati >1 vertex; rata-ratakan komposisinya
+    # dengan bobot fraksi agar selaras dengan fraksi terkonsolidasi.
+    components = [c for c in eq.X.coords["component"].values
+                  if str(c) != _VACANCY]
     comp_values = np.asarray(eq.X.values)  # (N,P,T,..., vertex, component)
-    # ambil potongan pertama (kondisi tunggal) -> (vertex, component)
     first = tuple(0 for _ in range(comp_values.ndim - 2))
     comp_matrix = comp_values[first]  # (vertex, component)
 
+    # Kolom index untuk tiap elemen aktif (bukan vacancy) pada comp_matrix.
+    raw_components = list(eq.X.coords["component"].values)
+    keep_idx = [i for i, c in enumerate(raw_components) if str(c) != _VACANCY]
+
+    # Akumulasi komposisi terbobot per nama fasa.
+    comp_sum: dict[str, np.ndarray] = {}
+    comp_w: dict[str, float] = {}
+    for vertex_i, (vname, vfrac) in enumerate(per_vertex):
+        row = comp_matrix[vertex_i][keep_idx]   # kolom elemen aktif (tanpa VA)
+        w = vfrac
+        if vname not in comp_sum:
+            comp_sum[vname] = np.zeros(len(components), dtype=float)
+            comp_w[vname] = 0.0
+        comp_sum[vname] += np.where(np.isnan(row), 0.0, row) * w
+        comp_w[vname] += w
+
     phase_comp: dict[str, list[float]] = {}
-    for idx, name in enumerate(frac_by_name.keys()):
-        comps_ph = []
-        for ci, el in enumerate(components):
-            val = comp_matrix[idx, ci]
-            comps_ph.append(round(float(val), 6) if not np.isnan(val) else 0.0)
-        phase_comp[name] = comps_ph
+    for name in phase_names:
+        total = comp_w.get(name, 0.0)
+        if total > 0:
+            vals = comp_sum[name] / total
+        else:
+            vals = np.zeros(len(components))
+        phase_comp[name] = [round(float(v), 6) if not np.isnan(v) else 0.0
+                            for v in np.asarray(vals).ravel()]
 
     return EquilibriumResult(
         temperature=temperature,
         phases=phase_names,
         fractions=fractions,
         compositions=phase_comp,
-        elements=species,
+        elements=components,
         gm=float(np.ravel(gm_arr)[0]) if gm_arr.size else None,
     )
 

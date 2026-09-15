@@ -110,7 +110,7 @@ struct ReactionView: View {
             metric("ΔG (kJ/mol)", res.dg / 1000, format: "%,.2f")
             metric("ΔH (kJ/mol)", res.dh / 1000, format: "%,.2f")
             metric("ΔS (J/mol·K)", res.ds, format: "%,.2f")
-            metric("Status", res.feasible ? 1 : 0, format: "%.0f", labelValue: res.feasible ? "Spontan" : "Tdk spontan")
+            metric("Status", res.feasible ? 1 : 0, format: "%.0f", labelValue: res.feasible ? "Spontan" : "Tidak spontan")
         }
     }
 

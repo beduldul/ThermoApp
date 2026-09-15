@@ -23,4 +23,6 @@ sys.path.insert(0, str(base / "src"))
 import engine_cli  # noqa: E402
 
 if __name__ == "__main__":
+    if "--daemon" in sys.argv[1:]:
+        sys.exit(engine_cli.run_daemon())
     sys.exit(engine_cli.main())

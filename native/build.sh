@@ -52,6 +52,10 @@ mkdir -p "$APP_DIR/Contents/Resources"
 cp "$OUT/ThermoApp_bin" "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp "$NATIVE/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$ENGINE_BIN" "$APP_DIR/Contents/Resources/engine_runner"
+cp "$NATIVE/ThermoApp/Assets.xcassets/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns" 2>/dev/null || \
+    echo "  -> (tidak ada AppIcon.icns, lanjut tanpa icon)"
+cp "$NATIVE/ThermoApp/Assets.xcassets/logo_hd.png" "$APP_DIR/Contents/Resources/logo_hd.png" 2>/dev/null || \
+    echo "  -> (tidak ada logo_hd.png, lanjut tanpa logo)"
 chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
 chmod +x "$APP_DIR/Contents/Resources/engine_runner"
 

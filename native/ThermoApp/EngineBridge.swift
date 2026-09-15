@@ -18,18 +18,173 @@ enum EngineError: LocalizedError {
     }
 }
 
+/// Proses engine Python yang PERSISTEN (daemon).
+///
+/// Alih-alih mem-boot PyInstaller baru setiap operasi (~1-2 detik karena
+/// import pycalphad + matplotlib), engine dijalankan SEKALI dalam mode
+/// `--daemon`. Klien mengirim satu baris JSON `{"id","cmd","args"}` lewat
+/// stdin; engine memproses dengan ThreadPoolExecutor (memakai semua core)
+/// dan membalas satu baris JSON `{"id","ok",...}` per permintaan (boleh
+/// out-of-order, dipasangkan lewat id yang sama).
+final class EngineDaemon {
+    private let executable: String
+    private let devScript: String   // kosong saat mode bundled
+    private let process = Process()
+    private let stdinPipe = Pipe()
+    private let stdoutPipe = Pipe()
+    private let lock = NSLock()
+    private let writerLock = NSLock()
+    private var nextID = 1
+    private var pending: [Int: (Result<[String: Any], Error>) -> Void] = [:]
+    private var started = false
+    private var usable = true
+
+    init(executable: String, devScript: String = "") {
+        self.executable = executable
+        self.devScript = devScript
+    }
+
+    var isUsable: Bool { usable }
+
+    /// Memulai proses daemon (idempotent). Melempar bila gagal start.
+    private func start() throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !started else { return }
+        process.standardOutput = stdoutPipe
+        process.standardError = FileHandle.nullDevice
+        process.standardInput = stdinPipe
+
+        if devScript.isEmpty {
+            process.executableURL = URL(fileURLWithPath: executable)
+            process.arguments = ["--daemon"]
+        } else {
+            process.executableURL = URL(fileURLWithPath: executable)
+            process.arguments = [devScript, "--daemon"]
+        }
+        try process.run()
+
+        // Pembaca stdout: satu-satunya thread yang membaca; memanggil handler
+        // sesuai id (boleh keluar tidak berurutan).
+        stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            guard let self = self else { return }
+            let data = handle.availableData
+            guard !data.isEmpty else {
+                self.terminate()
+                return
+            }
+            guard let text = String(data: data, encoding: .utf8) else { return }
+            for line in text.split(separator: "\n") {
+                self.handle(line: String(line))
+            }
+        }
+        started = true
+    }
+
+    /// Parse satu baris balasan dan memanggil handler yang cocok.
+    private func handle(line: String) {
+        guard let data = line.data(using: .utf8),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return
+        }
+        guard let rawID = obj["id"] else { return }
+        let id: Int
+        if let n = rawID as? NSNumber { id = n.intValue }
+        else if let i = rawID as? Int { id = i }
+        else { return }
+        lock.lock()
+        let handler = pending.removeValue(forKey: id)
+        lock.unlock()
+        guard let handler = handler else { return }
+        if let ok = obj["ok"] as? Bool, ok == false {
+            let msg = obj["error"] as? String ?? "engine error"
+            handler(.failure(EngineError.cliError(msg)))
+        } else {
+            handler(.success(obj))
+        }
+    }
+
+    /// Mengirim satu permintaan dan MENUNGGU balasan yang cocok (sinkron).
+    func send(cmd: String, args: [String: Any]) throws -> [String: Any] {
+        try start()
+        let id: Int = {
+            writerLock.lock()
+            defer { writerLock.unlock() }
+            let i = nextID
+            nextID += 1
+            return i
+        }()
+
+        let req: [String: Any] = ["id": id, "cmd": cmd, "args": args]
+        let payload = try jsonData(from: req) + "\n"
+        guard let data = payload.data(using: .utf8) else {
+            throw EngineError.badOutput("Gagal encode request.")
+        }
+
+        writerLock.lock()
+        stdinPipe.fileHandleForWriting.write(data)
+        // CATATAN: jangan panggil synchronizeFile() pada pipe — itu melempar
+        // ObjC exception (SIGABRT). Pipe bukan file.
+        writerLock.unlock()
+
+        let sem = DispatchSemaphore(value: 0)
+        var result: Result<[String: Any], Error>?
+        lock.lock()
+        pending[id] = { r in result = r; sem.signal() }
+        lock.unlock()
+
+        // Batas waktu supaya tidak menggantung UI bila engine macet.
+        let waited = sem.wait(timeout: .now() + 120)
+        if waited == .timedOut {
+            lock.lock()
+            pending.removeValue(forKey: id)
+            lock.unlock()
+            throw EngineError.cliError("Engine tidak menjawab (timeout).")
+        }
+        guard let r = result else {
+            throw EngineError.cliError("Engine tidak mengembalikan hasil.")
+        }
+        return try r.get()
+    }
+
+    /// Hentikan proses dan gagalkan semua permintaan tertunda.
+    func terminate() {
+        lock.lock()
+        let stuck = Array(pending.values)
+        pending.removeAll()
+        usable = false
+        lock.unlock()
+        for h in stuck { h(.failure(EngineError.cliError("Engine terhenti."))) }
+        if process.isRunning { process.terminate() }
+    }
+
+    deinit { terminate() }
+
+    private func jsonData(from obj: Any) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: obj)
+        guard let s = String(data: data, encoding: .utf8) else {
+            throw EngineError.badOutput("Gagal encode JSON.")
+        }
+        return s
+    }
+}
+
 /// Jembatan ke mesin perhitungan Python (pycalphad).
 ///
 /// Dua mode:
 ///  - **Bundled (produksi):** memanggil binary mandiri `engine_runner`
-///    (buatan PyInstaller) yang diletakkan di `Contents/Resources/`.
-///  - **Development:** memanggil `engine_cli.py` melalui Python venv.
+///    (PyInstaller) di `Contents/Resources/`, dijalankan sekali sebagai daemon.
+///  - **Development:** memanggil `engine_cli.py` via venv, juga sebagai daemon.
 final class EngineBridge {
     /// Path executable engine (binary mandiri) atau "" bila tak dibundel.
     private let bundledExecutable: String
 
     /// Path ke `engine_cli.py` (mode dev).
     private let scriptPath: String
+
+    /// Daemon persisten (lazy). Nil bila gagal start -> fallback one-shot.
+    private var daemon: EngineDaemon?
+    private let daemonLock = NSLock()
 
     init(bundledExecutable: String? = nil, scriptPath: String? = nil) {
         if let be = bundledExecutable, !be.isEmpty {
@@ -57,29 +212,99 @@ final class EngineBridge {
         return projectRoot.appendingPathComponent("engine_cli.py").path
     }
 
-    /// Menjalankan perintah engine dengan argumen, mengembalikan stdout.
-    private func run(arguments: [String]) throws -> String {
-        let process = Process()
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
+    private func pythonPath() -> String {
+        let cwd = URL(fileURLWithPath: scriptPath).deletingLastPathComponent()
+        let venv = cwd.appendingPathComponent(".venv/bin/python3")
+        if FileManager.default.isExecutableFile(atPath: venv.path) {
+            return venv.path
+        }
+        return "/usr/bin/python3"
+    }
 
+    /// Mengubah argv `["cmd","--k","v",...]` menjadi dict `{"k": v,...}`
+    /// yang sesuai protokol daemon (nilai yang bisa di-parse JSON dikirim
+    /// sebagai objek; sisanya sebagai string).
+    private func argvToDict(_ argv: [String]) -> [String: Any] {
+        var dict: [String: Any] = [:]
+        var i = 1
+        while i < argv.count {
+            let tok = argv[i]
+            if tok.hasPrefix("--"), i + 1 < argv.count {
+                let key = String(tok.dropFirst(2))
+                let raw = argv[i + 1]
+                if let d = raw.data(using: .utf8),
+                   let obj = try? JSONSerialization.jsonObject(with: d) {
+                    dict[key] = obj
+                } else {
+                    dict[key] = raw
+                }
+                i += 2
+            } else {
+                i += 1
+            }
+        }
+        return dict
+    }
+
+    /// Menjalankan perintah engine; mengembalikan stdout JSON.
+    ///
+    /// Diprioritaskan lewat daemon persisten (cepat). Bila daemon gagal,
+    /// jatuh ke mode one-shot (spawn proses sekali) sebagai pengaman.
+    private func run(arguments: [String]) throws -> String {
+        if let d = daemon, d.isUsable {
+            let cmd = arguments.first ?? ""
+            let args = argvToDict(arguments)
+            let resp = try d.send(cmd: cmd, args: args)
+            return try jsonString(fromDict: resp)
+        }
+
+        // Fallback one-shot bila daemon tidak tersedia
+        daemonLock.lock()
+        defer { daemonLock.unlock() }
+        if daemon == nil {
+            // coba buat daemon; gagal -> lanjut one-shot
+            do {
+                if !bundledExecutable.isEmpty {
+                    let d = EngineDaemon(executable: bundledExecutable)
+                    _ = try d.send(cmd: "databases", args: [:])
+                    daemon = d
+                } else {
+                    let d = EngineDaemon(executable: pythonPath(), devScript: scriptPath)
+                    _ = try d.send(cmd: "databases", args: [:])
+                    daemon = d
+                }
+            } catch {
+                daemon = nil
+            }
+        }
+        if let d = daemon, d.isUsable {
+            let cmd = arguments.first ?? ""
+            let args = argvToDict(arguments)
+            let resp = try d.send(cmd: cmd, args: args)
+            return try jsonString(fromDict: resp)
+        }
+
+        // Jalan terakhir: proses one-shot seperti sebelumnya
+        return try runOneShot(arguments: arguments)
+    }
+
+    private func runOneShot(arguments: [String]) throws -> String {
+        let process = Process()
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        process.standardOutput = outPipe
+        process.standardError = errPipe
         if !bundledExecutable.isEmpty {
-            // Mode produksi: jalankan binary mandiri langsung
             process.executableURL = URL(fileURLWithPath: bundledExecutable)
             process.arguments = arguments
         } else {
-            // Mode dev: python3 script.py args
             process.executableURL = URL(fileURLWithPath: pythonPath())
             process.arguments = [scriptPath] + arguments
         }
-
         try process.run()
-        let outData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-        let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+        let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
-
         guard process.terminationStatus == 0 else {
             let err = String(data: errData, encoding: .utf8) ?? ""
             throw EngineError.cliError("Kode keluar \(process.terminationStatus): \(err)")
@@ -88,17 +313,6 @@ final class EngineBridge {
             throw EngineError.badOutput("Tidak dapat membaca output.")
         }
         return output
-    }
-
-    private func pythonPath() -> String {
-        // 1. venv proyek
-        let cwd = URL(fileURLWithPath: scriptPath).deletingLastPathComponent()
-        let venv = cwd.appendingPathComponent(".venv/bin/python3")
-        if FileManager.default.isExecutableFile(atPath: venv.path) {
-            return venv.path
-        }
-        // 2. python3 sistem
-        return "/usr/bin/python3"
     }
 
     private func parseJSON(_ output: String) throws -> [String: Any] {
@@ -119,6 +333,17 @@ final class EngineBridge {
         let out = try run(arguments: ["databases"])
         let obj = try parseJSON(out)
         return obj["databases"] as? [[String: Any]] ?? []
+    }
+
+    /// Label reaksi oksidasi/reduktor untuk Ellingham + daftar spesies reaksi.
+    func labels() throws -> (oxidation: [String], reductants: [String], species: [String]) {
+        let out = try run(arguments: ["labels"])
+        let obj = try parseJSON(out)
+        return (
+            obj["oxidation"] as? [String] ?? [],
+            obj["reductants"] as? [String] ?? [],
+            obj["species"] as? [String] ?? []
+        )
     }
 
     func equilibrium(db: String, comp: [String: Double], T: Double, P: Double = 101325.0) throws -> [String: Any] {
@@ -204,6 +429,15 @@ final class EngineBridge {
 
     private func jsonString<T: Encodable>(from value: T) throws -> String {
         let data = try JSONEncoder().encode(value)
+        guard let s = String(data: data, encoding: .utf8) else {
+            throw EngineError.badOutput("Tidak dapat meng-encode JSON.")
+        }
+        return s
+    }
+
+    /// Encode dict (hasil daemon) menjadi string JSON untuk di-parse ulang.
+    private func jsonString(fromDict value: [String: Any]) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: value)
         guard let s = String(data: data, encoding: .utf8) else {
             throw EngineError.badOutput("Tidak dapat meng-encode JSON.")
         }
