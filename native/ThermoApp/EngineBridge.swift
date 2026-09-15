@@ -153,6 +153,55 @@ final class EngineBridge {
         return file
     }
 
+    /// Helper: jalankan subcommand yang menulis PNG ke file, kembalikan path.
+    private func renderToFile(arguments: [String]) throws -> String {
+        let out = try run(arguments: arguments)
+        let obj = try parseJSON(out)
+        guard let file = obj["file"] as? String else {
+            throw EngineError.badOutput("Subcommand tidak mengembalikan file.")
+        }
+        return file
+    }
+
+    /// Diagram Ellingham (ΔG vs T oksidasi/redoks).
+    func ellingham(oxids: [String], reductants: [String]?,
+                   tmin: Double, tmax: Double, outPath: String) throws -> String {
+        var args = ["ellingham", "--oxids", try jsonString(from: oxids)]
+        if let r = reductants, !r.isEmpty {
+            args += ["--reductants", try jsonString(from: r)]
+        }
+        args += ["--tmin", String(tmin), "--tmax", String(tmax), "--out", outPath]
+        return try renderToFile(arguments: args)
+    }
+
+    /// Diagram TTT baja karbon.
+    func ttt(c: Double, mn: Double, cr: Double, mo: Double, si: Double?,
+             outPath: String) throws -> String {
+        var args = ["ttt", "--c", String(c), "--mn", String(mn),
+                    "--cr", String(cr), "--mo", String(mo)]
+        if let s = si {
+            args += ["--si", String(s)]
+        }
+        args += ["--out", outPath]
+        return try renderToFile(arguments: args)
+    }
+
+    /// Plot ΔG vs T (stabilitas senyawa).
+    func gibbs(categories: [String]?, tmin: Double, tmax: Double,
+               outPath: String) throws -> String {
+        var args = ["gibbs"]
+        if let cats = categories {
+            args += ["--categories", try jsonString(from: cats)]
+        }
+        args += ["--tmin", String(tmin), "--tmax", String(tmax), "--out", outPath]
+        return try renderToFile(arguments: args)
+    }
+
+    /// Diagram Pourbaix (E-pH, Fe-H2O).
+    func pourbaix(outPath: String) throws -> String {
+        return try renderToFile(arguments: ["pourbaix", "--out", outPath])
+    }
+
     private func jsonString<T: Encodable>(from value: T) throws -> String {
         let data = try JSONEncoder().encode(value)
         guard let s = String(data: data, encoding: .utf8) else {

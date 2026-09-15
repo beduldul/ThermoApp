@@ -36,10 +36,7 @@ SWIFT_SOURCES=(
     "$NATIVE/ThermoApp/ContentView.swift"
     "$NATIVE/ThermoApp/Models.swift"
     "$NATIVE/ThermoApp/EngineBridge.swift"
-    "$NATIVE/ThermoApp/Views/HomeView.swift"
-    "$NATIVE/ThermoApp/Views/EquilibView.swift"
-    "$NATIVE/ThermoApp/Views/ReactionView.swift"
-    "$NATIVE/ThermoApp/Views/PhaseDiagramView.swift"
+    "$NATIVE"/ThermoApp/Views/*.swift
 )
 swiftc -O -whole-module-optimization \
     -target arm64-apple-macos14.0 \

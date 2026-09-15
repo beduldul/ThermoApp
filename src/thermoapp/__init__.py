@@ -9,8 +9,10 @@ from .engine import (
     compute_equilibrium,
     compute_reaction,
     load_database,
+    reaction_gibbs_curve,
     reaction_species,
 )
+from . import ellingham, gibbs, ttt, pourbaix, thermo_data
 
 __all__ = [
     "AVAILABLE_DATABASES",
@@ -21,5 +23,11 @@ __all__ = [
     "compute_equilibrium",
     "compute_reaction",
     "load_database",
+    "reaction_gibbs_curve",
     "reaction_species",
+    "ellingham",
+    "gibbs",
+    "ttt",
+    "pourbaix",
+    "thermo_data",
 ]

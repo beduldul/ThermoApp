@@ -34,6 +34,13 @@ AVAILABLE_DATABASES: list[dict[str, str]] = [
     {"id": "cuo", "file": "cuo.tdb", "label": "Cu-O", "elements": "Cu-O"},
     {"id": "pbsn", "file": "pbsn.tdb", "label": "Pb-Sn", "elements": "Pb-Sn"},
     {"id": "crtiv_ghosh", "file": "crtiv_ghosh.tdb", "label": "Cr-Ti-V (Ghosh)", "elements": "Cr-Ti-V"},
+    # Sistem biner tambahan (berguna utk praktikum diagram fasa)
+    {"id": "alfe", "file": "alfe.tdb", "label": "Al-Fe", "elements": "Al-Fe"},
+    {"id": "alfe_sundman", "file": "Al-Fe_sundman2009.tdb", "label": "Al-Fe (Sundman 2009)", "elements": "Al-Fe"},
+    {"id": "alzn", "file": "alzn_mey.tdb", "label": "Al-Zn (Mey)", "elements": "Al-Zn"},
+    {"id": "cumg", "file": "cumg.tdb", "label": "Cu-Mg", "elements": "Cu-Mg"},
+    {"id": "ausn", "file": "AuSn-13Don.tdb", "label": "Au-Sn", "elements": "Au-Sn"},
+    {"id": "cov", "file": "CoV-20Wan.tdb", "label": "Co-V (Wan)", "elements": "Co-V"},
 ]
 
 # Nama lengkap file TDB yang dibundel pycalphad
@@ -47,6 +54,12 @@ _TDB_FILES = {
     "cuo": "cuo.tdb",
     "pbsn": "pbsn.tdb",
     "crtiv_ghosh": "crtiv_ghosh.tdb",
+    "alfe": "alfe.tdb",
+    "alfe_sundman": "Al-Fe_sundman2009.tdb",
+    "alzn": "alzn_mey.tdb",
+    "cumg": "cumg.tdb",
+    "ausn": "AuSn-13Don.tdb",
+    "cov": "CoV-20Wan.tdb",
 }
 
 # Elemen yang diabaikan / "vacancy"
@@ -242,44 +255,10 @@ def compute_equilibrium(
 # Format: name -> {"Hf": ΔHf298 (J/mol), "S": S298 (J/mol.K),
 #                  "a","b","c": koefisien cp = a + b*T + c*T^-2 }
 
-_THERMO = {
-    # Zat sederhana (elemen) — Hf=0, data Cp dari JANAF/NIST
-    "Fe(s)":       {"Hf": 0.0,       "S": 27.28, "a": 17.49,   "b": 0.024452,  "c": 0.0},
-    "Fe(l)":       {"Hf": 13808.0,   "S": 34.04, "a": 41.84,   "b": 0.0,       "c": 0.0},
-    "O2(g)":       {"Hf": 0.0,       "S": 205.15, "a": 29.53,  "b": 0.0089,    "c": -1.9e5},
-    "Al(s)":       {"Hf": 0.0,       "S": 28.30, "a": 20.67,   "b": 0.012388,  "c": 0.0},
-    "Al(l)":       {"Hf": 10713.0,   "S": 38.49, "a": 31.75,   "b": 0.0,       "c": 0.0},
-    "C(s,grafit)": {"Hf": 0.0,       "S": 5.74,  "a": 17.17,   "b": 0.00427,   "c": -8.8e4},
-    "Ti(s)":       {"Hf": 0.0,       "S": 30.72, "a": 22.01,   "b": 0.010038,  "c": 0.0},
-    "Si(s)":       {"Hf": 0.0,       "S": 18.83, "a": 22.82,   "b": 0.003856,  "c": -3.5e5},
-    "Cu(s)":       {"Hf": 0.0,       "S": 33.15, "a": 22.64,   "b": 0.005351,  "c": 0.0},
-    "Ni(s)":       {"Hf": 0.0,       "S": 29.87, "a": 16.99,   "b": 0.02946,   "c": 0.0},
-    "Mg(s)":       {"Hf": 0.0,       "S": 32.68, "a": 22.30,   "b": 0.01025,   "c": -0.43e5},
-    "Zn(s)":       {"Hf": 0.0,       "S": 41.63, "a": 22.38,   "b": 0.010038,  "c": 0.0},
-    "CO2(g)":      {"Hf": -393509.0, "S": 213.79, "a": 44.14,  "b": 0.00904,   "c": -8.5e5},
-    "CO(g)":       {"Hf": -110525.0, "S": 197.66, "a": 28.41,  "b": 0.00410,   "c": 0.0},
-    "H2(g)":       {"Hf": 0.0,       "S": 130.68, "a": 28.84,  "b": 0.00076,   "c": 0.0},
-    "H2O(g)":      {"Hf": -241818.0, "S": 188.83, "a": 30.09,  "b": 0.01072,   "c": 0.0},
-    "H2O(l)":      {"Hf": -285830.0, "S": 69.95,  "a": 75.29,  "b": 0.0,       "c": 0.0},
-    "N2(g)":       {"Hf": 0.0,       "S": 191.61, "a": 28.90,  "b": 0.00164,   "c": 0.0},
-    "NH3(g)":      {"Hf": -46110.0,  "S": 192.45, "a": 29.75,  "b": 0.02511,   "c": -1.5e6},
-    "Cl2(g)":      {"Hf": 0.0,       "S": 223.08, "a": 36.90,  "b": 0.00025,   "c": -2.8e5},
-    "NaCl(s)":     {"Hf": -411153.0, "S": 72.11,  "a": 50.71,  "b": 0.01674,   "c": 0.0},
-    "CaCO3(s)":    {"Hf": -1206920.0,"S": 92.90,  "a": 82.34,  "b": 0.04986,   "c": -1.0e6},
-    "CaO(s)":      {"Hf": -635090.0, "S": 38.07,  "a": 49.62,  "b": 0.00452,   "c": -6.9e5},
-    "CaCl2(s)":    {"Hf": -795790.0, "S": 104.60, "a": 71.88,  "b": 0.01364,   "c": 0.0},
-    "SiO2(s,quartz)":{"Hf": -910700.0,"S": 41.46, "a": 44.60,  "b": 0.00778,   "c": -1.1e6},
-    "FeO(s)":      {"Hf": -272044.0, "S": 60.75,  "a": 50.15,  "b": 0.00862,   "c": 0.0},
-    "Fe2O3(s)":    {"Hf": -824248.0, "S": 87.40,  "a": 98.28,  "b": 0.07778,   "c": -1.4e6},
-    "Fe3O4(s)":    {"Hf": -1118384.0,"S": 146.1,  "a": 160.14, "b": 0.01716,   "c": 0.0},
-    "Al2O3(s)":    {"Hf": -1675690.0,"S": 50.92,  "a": 114.77, "b": 0.01280,   "c": -3.5e6},
-    "TiO2(s,ru)":  {"Hf": -944747.0, "S": 50.62,  "a": 73.35,  "b": 0.00332,   "c": -1.7e6},
-    "MgO(s)":      {"Hf": -601241.0, "S": 26.85,  "a": 42.26,  "b": 0.00739,   "c": -6.2e5},
-    "CuO(s)":      {"Hf": -155850.0, "S": 42.59,  "a": 42.84,  "b": 0.00877,   "c": -1.4e6},
-    "Cu2O(s)":     {"Hf": -170707.0, "S": 92.93,  "a": 72.38,  "b": 0.02316,   "c": 0.0},
-    "ZnO(s)":      {"Hf": -350460.0, "S": 43.65,  "a": 49.00,  "b": 0.00532,   "c": -9.0e5},
-    "FeS(s)":      {"Hf": -100416.0, "S": 60.29,  "a": 50.21,  "b": 0.02929,   "c": 0.0},
-}
+# Data termokimia diperkaya dimuat dari modul terpisah thermo_data.py
+# (JANAF/NIST/Barin-Kubaschewski) — mencakup oksida, sulfida, klorida,
+# karbida, nitrida, karbonat, dsb.
+from .thermo_data import THERMO_DATA as _THERMO
 
 
 @dataclass
@@ -374,6 +353,58 @@ def compute_reaction(
 def reaction_species() -> list[str]:
     """Mengembalikan daftar semua spesies termokimia yang tersedia."""
     return sorted(_THERMO.keys())
+
+
+# ---------------------------------------------------------------------------
+# Helper: kurva Gibbs vs T untuk reaksi (dipakai diagram Ellingham dll.)
+# ---------------------------------------------------------------------------
+
+
+def _reaction_thermo_coeffs(reactants: list[str], products: list[str]):
+    """Hitung (dH0, dS0, da, db, dc) untuk reaksi (basis per reaksi).
+
+    Koefisien Cp netto (da, db, dc) dan nilai ΔH(298), ΔS(298) dihitung
+    sekali, sehingga ΔG(T) dapat dievaluasi cepat pada banyak suhu.
+    """
+    rs = _parse_species_tokens(reactants)
+    ps = _parse_species_tokens(products)
+
+    stoich: dict[str, float] = {}
+    for s in ps:
+        stoich[s.name] = stoich.get(s.name, 0.0) + s.stoich
+    for s in rs:
+        stoich[s.name] = stoich.get(s.name, 0.0) - s.stoich
+
+    dH0 = sum(nu * _THERMO[name]["Hf"] for name, nu in stoich.items())
+    dS0 = sum(nu * _THERMO[name]["S"] for name, nu in stoich.items())
+    da = sum(nu * _THERMO[name]["a"] for name, nu in stoich.items())
+    db = sum(nu * _THERMO[name]["b"] for name, nu in stoich.items())
+    dc = sum(nu * _THERMO[name]["c"] for name, nu in stoich.items())
+    return dH0, dS0, da, db, dc
+
+
+def _dg_from_coeffs(coeffs, T: float) -> float:
+    """Evaluasi ΔG(T) dari koefisien Kirchhoff (dH0, dS0, da, db, dc)."""
+    dH0, dS0, da, db, dc = coeffs
+    T0 = 298.15
+    dH = dH0 + da * (T - T0) + 0.5 * db * (T * T - T0 * T0) - dc * (1 / T - 1 / T0)
+    dS = dS0 + da * np.log(T / T0) + db * (T - T0) - 0.5 * dc * (1 / (T * T) - 1 / (T0 * T0))
+    return dH - T * dS
+
+
+def reaction_gibbs_curve(
+    reactants: list[str],
+    products: list[str],
+    temperatures: list[float] | np.ndarray,
+) -> list[float]:
+    """Kurva ΔG (J/mol reaksi) terhadap suhu untuk reaksi stoikiometri."""
+    coeffs = _reaction_thermo_coeffs(reactants, products)
+    return [float(_dg_from_coeffs(coeffs, T)) for T in temperatures]
+
+
+def reaction_coeffs(reactants: list[str], products: list[str]):
+    """Expose koefisien termokimia reaksi (untuk UI menampilkan persamaan)."""
+    return _reaction_thermo_coeffs(reactants, products)
 
 
 # ---------------------------------------------------------------------------
