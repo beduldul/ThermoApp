@@ -276,51 +276,39 @@ def _run_one(parser, req):
 
 
 def run_daemon() -> int:
-    """Loop persisten: baca {id, cmd, args} per baris dari stdin,
-    jalankan dengan ThreadPoolExecutor (pakai semua core), tulis satu baris
-    JSON {id, ok, ...} per permintaan ke stdout (boleh out-of-order)."""
-    from concurrent.futures import ThreadPoolExecutor
+    """Loop persisten: baca {id, cmd, args} per baris dari stdin dan tulis
+    satu baris JSON {id, ok, ...} per permintaan ke stdout.
 
+    Diproses SECARA SINKRON (satu per satu): tiap permintaan dieksekusi
+    langsung dan hasilnya dicetak seketika. Tidak memakai ThreadPoolExecutor
+    karena (1) balasan tak ter-hydrate sampai baris stdin berikutnya tiba —
+    dengan stdin pipe yang TETAP TERBUKA (seperti dari app) loop membaca stdin
+    selamanya dan balasan tak pernah keluar => deadlock; (2) matplotlib tidak
+    thread-safe (deadlock bila savefig/close dipakai di worker thread).
+    CLI memuat pycalphad+matplotlib SEKALI, jadi tetap cepat walau serial.
+    """
     parser = build_parser()
-    futures = {}
-    executor = ThreadPoolExecutor(max_workers=os.cpu_count() or 4)
-    pending = 0
-    try:
-        for line in sys.stdin:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                req = json.loads(line)
-            except json.JSONDecodeError:
-                print(json.dumps({"id": None, "ok": False,
-                                  "error": "JSON tidak valid"}), flush=True)
-                continue
-            cmd = req.get("command") or req.get("cmd")
-            if cmd in ("shutdown", "exit"):
-                break
-            dreq = _DaemonReq(req_id=req.get("id", 0), cmd=cmd or "",
-                              args=req.get("args", {}),
-                              argv=_convert_args(cmd or "", req.get("args", {})))
-            fut = executor.submit(_run_one, parser, dreq)
-            futures[fut] = dreq.req_id
-            pending += 1
-
-            # kembali hasil yang sudah kelar (out-of-order OK)
-            done = [f for f in futures if f.done()]
-            for f in done:
-                try:
-                    print(f.result(), flush=True)
-                finally:
-                    futures.pop(f, None)
-    finally:
-        # tunggu sisa job & tutup executor
-        for f in futures:
-            try:
-                print(f.result(), flush=True)
-            except Exception:  # noqa: BLE001
-                pass
-        executor.shutdown(wait=False, cancel_futures=False)
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            req = json.loads(line)
+        except json.JSONDecodeError:
+            print(json.dumps({"id": None, "ok": False,
+                              "error": "JSON tidak valid"}), flush=True)
+            continue
+        cmd = req.get("command") or req.get("cmd")
+        if cmd in ("shutdown", "exit"):
+            break
+        dreq = _DaemonReq(req_id=req.get("id", 0), cmd=cmd or "",
+                          args=req.get("args", {}),
+                          argv=_convert_args(cmd or "", req.get("args", {})))
+        try:
+            print(_run_one(parser, dreq), flush=True)
+        except Exception as e:  # noqa: BLE001 — jangan pernah biarkan daemon mati
+            print(json.dumps({"id": dreq.req_id, "ok": False,
+                              "error": f"daemon: {e}"}), flush=True)
     return 0
 
 

@@ -54,7 +54,14 @@ final class EngineDaemon {
         defer { lock.unlock() }
         guard !started else { return }
         process.standardOutput = stdoutPipe
-        process.standardError = FileHandle.nullDevice
+        if let errPath = ProcessInfo.processInfo.environment["THERMOAPP_DAEMON_ERR"] {
+            try? FileManager.default.createFile(atPath: errPath, contents: nil)
+            process.standardError = try? FileHandle(forWritingTo: URL(fileURLWithPath: errPath))
+            // fallback: bila gagal buat file, jangan crash
+            if process.standardError == nil { process.standardError = FileHandle.nullDevice }
+        } else {
+            process.standardError = FileHandle.nullDevice
+        }
         process.standardInput = stdinPipe
 
         if devScript.isEmpty {
@@ -279,15 +286,20 @@ final class EngineBridge {
             // coba buat daemon; gagal -> lanjut one-shot
             do {
                 if !bundledExecutable.isEmpty {
+                    _dbg("run(): creating daemon for bundled exe")
                     let d = EngineDaemon(executable: bundledExecutable)
                     _ = try d.send(cmd: "databases", args: [:])
+                    _dbg("run(): daemon adopted after databases test")
                     daemon = d
                 } else {
+                    _dbg("run(): creating daemon for dev script")
                     let d = EngineDaemon(executable: pythonPath(), devScript: scriptPath)
                     _ = try d.send(cmd: "databases", args: [:])
+                    _dbg("run(): dev daemon adopted")
                     daemon = d
                 }
             } catch {
+                _dbg("run(): daemon creation FAILED: \(error)")
                 daemon = nil
             }
         }

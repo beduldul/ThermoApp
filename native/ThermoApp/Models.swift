@@ -1,6 +1,21 @@
 import Foundation
 import SwiftUI
 
+/// Diagnostik: tulis baris ke file bila env THERMOAPP_DEBUG set.
+func _dbg(_ s: String) {
+    guard let p = ProcessInfo.processInfo.environment["THERMOAPP_DEBUG"] else { return }
+    let line = "[\(Date())] \(s)\n"
+    if let d = line.data(using: .utf8) {
+        if let h = try? FileHandle(forWritingTo: URL(fileURLWithPath: p)) {
+            defer { try? h.close() }
+            try? h.seekToEnd()
+            try? h.write(contentsOf: d)
+        } else {
+            try? line.write(toFile: p, atomically: true, encoding: .utf8)
+        }
+    }
+}
+
 /// Model hasil kesetimbangan fasa.
 struct EquilibriumOutput {
     let phases: [String]
@@ -40,8 +55,10 @@ final class AppModel: ObservableObject {
     init(scriptPath: String? = nil, bundledEngine: String? = nil) {
         let be = bundledEngine ?? EngineBridge.bundledEnginePath()
         if !be.isEmpty {
+            _dbg("using BUNDLED engine: \(be)")
             self.bridge = EngineBridge(bundledExecutable: be)
         } else {
+            _dbg("bundled engine NOT found; fallback script")
             self.bridge = EngineBridge(scriptPath: scriptPath)
         }
         refreshDatabases()
@@ -54,11 +71,16 @@ final class AppModel: ObservableObject {
         // perbarui hasilnya di main thread.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let raw: [[String: Any]]
+            let t0 = Date()
             do {
                 raw = try self?.bridge.databases() ?? []
             } catch {
+                let ms = Int(Date().timeIntervalSince(t0) * 1000)
+                _dbg("refreshDatabases FAILED after \(ms)ms: \(error)")
                 raw = []
             }
+            let ms = Int(Date().timeIntervalSince(t0) * 1000)
+            _dbg("refreshDatabases got \(raw.count) DBs in \(ms)ms")
             DispatchQueue.main.async {
                 self?.databases = raw.compactMap { DatabaseInfo($0) }
             }
