@@ -7,8 +7,9 @@ struct GibbsView: View {
     @State private var selected = Set<String>(["Oksida", "Sulfida"])
     @State private var tmin = 300.0
     @State private var tmax = 1800.0
-    @State private var result = PlotResultView(
-        title: "", subtitle: "", hint: "", action: { (false, nil) })
+    @State private var image: NSImage?
+    @State private var isLoading = false
+    @State private var errorMessage: String?
 
     var body: some View {
         ScrollView {
@@ -33,33 +34,44 @@ struct GibbsView: View {
                     Text("T max (K)"); TextField("", value: $tmax, format: .number).textFieldStyle(.roundedBorder).frame(width: 90)
                     Button("Gambar Diagram") { doRender() }.buttonStyle(.borderedProminent)
                 }
-                result
+                PlotResultView(
+                    title: "Gibbs vs Temperatur",
+                    subtitle: "Kategori: \(Array(selected).sorted().joined(separator: ", "))",
+                    hint: "Pilih kategori, lalu tekan Gambar Plot.",
+                    image: image, isLoading: isLoading, errorMessage: errorMessage)
             }.padding(20)
         }
         .onAppear { doRender() }
     }
 
-    func makeView() -> PlotResultView {
-        let cats = Array(selected).sorted()
-        return PlotResultView(
-            title: "Gibbs vs Temperatur",
-            subtitle: "Kategori: \(cats.joined(separator: ", "))",
-            hint: "Pilih kategori, lalu tekan Gambar Plot.",
-            action: {
-                let dir = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("thermoapp_gib_\(UUID().uuidString).png")
-                setLastPlotURL(dir)
-                do {
-                    let _ = try model.bridge.gibbs(categories: cats, tmin: tmin, tmax: tmax, outPath: dir.path)
-                    return (true, nil)
-                } catch {
-                    return (false, error.localizedDescription)
-                }
-            })
-    }
-
     func doRender() {
-        result = makeView()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { result.render() }
+        let cats = Array(selected).sorted()
+        guard !cats.isEmpty else {
+            errorMessage = "Pilih minimal satu kategori."
+            return
+        }
+        image = nil
+        errorMessage = nil
+        isLoading = true
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("thermoapp_gib_\(UUID().uuidString).png")
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let file = try model.bridge.gibbs(categories: cats, tmin: tmin, tmax: tmax, outPath: dir.path)
+                if let img = NSImage(contentsOfFile: file) {
+                    DispatchQueue.main.async {
+                        self.image = img
+                        self.isLoading = false
+                    }
+                } else {
+                    throw EngineError.badOutput("Gagal memuat gambar: \(file)")
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = error.localizedDescription
+                    self.isLoading = false
+                }
+            }
+        }
     }
 }

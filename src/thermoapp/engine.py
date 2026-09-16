@@ -472,12 +472,18 @@ def compute_binary_diagram(
     import matplotlib.pyplot as plt
 
     db, meta_db = load_database(db_id)
-    elements = meta_db["elements"]
-    if comp_1 not in elements or comp_2 not in elements:
-        raise ValueError(f"Elemen {comp_1}/{comp_2} tidak ada di database {db_id}")
+    elements = meta_db["elements"]  # huruf besar: ['CO','V',...]
+
+    # Normalisasi huruf: UI mengirim "Co"/"V" tapi simbol TDB adalah "CO"/"V".
+    elem_set = {e.upper(): e for e in elements}
+    c1 = elem_set.get(comp_1.strip().upper())
+    c2 = elem_set.get(comp_2.strip().upper())
+    if c1 is None or c2 is None:
+        raise ValueError(f"Elemen {comp_1}/{comp_2} tidak ada di database {db_id} "
+                         f"(tersedia: {elements})")
 
     # Komponen: dua elemen yang dipilih + VA (vacancy) jika ada di database
-    components = [comp_1, comp_2]
+    components = [c1, c2]
     if "VA" in db.elements:
         components.append("VA")
 
@@ -487,7 +493,7 @@ def compute_binary_diagram(
         v.P: 101325.0,
         v.N: 1.0,
         v.T: (t_min, t_max, t_span / 40),
-        v.X(comp_2): (0.0, 1.0, 1.0 / n_x),
+        v.X(c2): (0.0, 1.0, 1.0 / n_x),
     }
 
     from pycalphad.plot.binary import binplot
@@ -496,17 +502,17 @@ def compute_binary_diagram(
         ax = binplot(db, components, meta_db["phases"], conds)
     except Exception:
         # fallback tanpa VA
-        ax = binplot(db, [comp_1, comp_2], meta_db["phases"], conds)
+        ax = binplot(db, [c1, c2], meta_db["phases"], conds)
 
-    ax.set_xlabel(f"Fraksi mol {comp_2}")
+    ax.set_xlabel(f"Fraksi mol {c2}")
     ax.set_ylabel("Temperatur (K)")
-    ax.set_title(f"Diagram Fasa Biner {comp_1}–{comp_2} ({db_id})")
+    ax.set_title(f"Diagram Fasa Biner {c1}–{c2} ({db_id})")
     fig = ax.get_figure()
 
     bd = BinaryDiagram(
         db_id=db_id,
-        comp_1=comp_1,
-        comp_2=comp_2,
+        comp_1=c1,
+        comp_2=c2,
         temperatures=[],
         t_liq=[],
         t_sol=[],

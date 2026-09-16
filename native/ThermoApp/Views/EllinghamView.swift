@@ -16,8 +16,9 @@ struct EllinghamView: View {
     @State private var selectedReds = Set<String>(["C → CO₂", "2C → 2CO"])
     @State private var tmin = 400.0
     @State private var tmax = 1800.0
-    @State private var result = PlotResultView(
-        title: "", subtitle: "", hint: "", action: { (false, nil) })
+    @State private var image: NSImage?
+    @State private var isLoading = false
+    @State private var errorMessage: String?
 
     init() {
         _selected = State(initialValue: ["2Fe → 2FeO", "4/3Al → 2/3Al₂O₃", "Si → SiO₂"])
@@ -82,39 +83,46 @@ struct EllinghamView: View {
                     Button("Gambar Diagram") { doRender() }.buttonStyle(.borderedProminent)
                 }
 
-                result
-                    .onAppear {
-                        result = makeView()
-                    }
+                PlotResultView(
+                    title: "Ellingham Diagram",
+                    subtitle: "Reaksi: \(Array(selected).sorted().count) oksida + \(Array(selectedReds).sorted().count) reduktor",
+                    hint: "Pilih oksida & reduktor, lalu tekan Gambar Diagram.",
+                    image: image, isLoading: isLoading, errorMessage: errorMessage)
             }.padding(20)
         }
         .onAppear { loadLabels() }
     }
 
-    func makeView() -> PlotResultView {
+    func doRender() {
         let ox = Array(selected).sorted()
         let rd = Array(selectedReds).sorted()
-        return PlotResultView(
-            title: "Ellingham Diagram",
-            subtitle: "Reaksi: \(ox.count) oksida + \(rd.count) reduktor",
-            hint: "Pilih oksida & reduktor, lalu tekan Gambar Diagram.",
-            action: {
-                let dir = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("thermoapp_el_\(UUID().uuidString).png")
-                setLastPlotURL(dir)
-                do {
-                    let f = try model.bridge.ellingham(
-                        oxids: ox, reductants: rd, tmin: tmin, tmax: tmax, outPath: dir.path)
-                    return (true, nil)
-                } catch {
-                    return (false, error.localizedDescription)
+        guard !ox.isEmpty else {
+            errorMessage = "Pilih minimal satu oksida."
+            return
+        }
+        image = nil
+        errorMessage = nil
+        isLoading = true
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("thermoapp_el_\(UUID().uuidString).png")
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let f = try model.bridge.ellingham(
+                    oxids: ox, reductants: rd, tmin: tmin, tmax: tmax, outPath: dir.path)
+                if let img = NSImage(contentsOfFile: f) {
+                    DispatchQueue.main.async {
+                        self.image = img
+                        self.isLoading = false
+                    }
+                } else {
+                    throw EngineError.badOutput("Gagal memuat gambar: \(f)")
                 }
-            })
-    }
-
-    func doRender() {
-        result = makeView()
-        // render setelah view ter-pasang
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { result.render() }
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = error.localizedDescription
+                    self.isLoading = false
+                }
+            }
+        }
     }
 }

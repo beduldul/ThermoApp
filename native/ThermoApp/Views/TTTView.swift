@@ -7,8 +7,9 @@ struct TTTView: View {
     @State private var mn = 0.5
     @State private var cr = 0.0
     @State private var mo = 0.0
-    @State private var result = PlotResultView(
-        title: "", subtitle: "", hint: "", action: { (false, nil) })
+    @State private var image: NSImage?
+    @State private var isLoading = false
+    @State private var errorMessage: String?
 
     var body: some View {
         ScrollView {
@@ -26,7 +27,11 @@ struct TTTView: View {
                     Button("Gambar Diagram TTT") { doRender() }.buttonStyle(.borderedProminent)
                 }
 
-                result
+                PlotResultView(
+                    title: "Diagram TTT",
+                    subtitle: String(format: "Baja C %.2f%% Mn %.1f%% Cr %.1f%% Mo %.1f%%", c, mn, cr, mo),
+                    hint: "Atur komposisi, lalu tekan Gambar Diagram TTT.",
+                    image: image, isLoading: isLoading, errorMessage: errorMessage)
             }.padding(20)
         }
         .onAppear { doRender() }
@@ -40,26 +45,29 @@ struct TTTView: View {
         }
     }
 
-    func makeView() -> PlotResultView {
-        PlotResultView(
-            title: "Diagram TTT",
-            subtitle: String(format: "Baja C %.2f%% Mn %.1f%% Cr %.1f%% Mo %.1f%%", c, mn, cr, mo),
-            hint: "Atur komposisi, lalu tekan Gambar Diagram TTT.",
-            action: {
-                let dir = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("thermoapp_ttt_\(UUID().uuidString).png")
-                setLastPlotURL(dir)
-                do {
-                    let _ = try model.bridge.ttt(c: c, mn: mn, cr: cr, mo: mo, si: 0.1, outPath: dir.path)
-                    return (true, nil)
-                } catch {
-                    return (false, error.localizedDescription)
-                }
-            })
-    }
-
     func doRender() {
-        result = makeView()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { result.render() }
+        image = nil
+        errorMessage = nil
+        isLoading = true
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("thermoapp_ttt_\(UUID().uuidString).png")
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let file = try model.bridge.ttt(c: c, mn: mn, cr: cr, mo: mo, si: 0.1, outPath: dir.path)
+                if let img = NSImage(contentsOfFile: file) {
+                    DispatchQueue.main.async {
+                        self.image = img
+                        self.isLoading = false
+                    }
+                } else {
+                    throw EngineError.badOutput("Gagal memuat gambar: \(file)")
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = error.localizedDescription
+                    self.isLoading = false
+                }
+            }
+        }
     }
 }

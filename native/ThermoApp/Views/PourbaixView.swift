@@ -3,8 +3,9 @@ import AppKit
 
 struct PourbaixView: View {
     @EnvironmentObject var model: AppModel
-    @State private var result = PlotResultView(
-        title: "", subtitle: "", hint: "", action: { (false, nil) })
+    @State private var image: NSImage?
+    @State private var isLoading = false
+    @State private var errorMessage: String?
 
     var body: some View {
         ScrollView {
@@ -14,32 +15,39 @@ struct PourbaixView: View {
                     Text("Diagram stabilitas elektrokimia besi pada 25 °C: garis air (O2/H2O, H2O/H2), garis keseimbangan Fe/Fe2+/Fe3+, serta batas fasa padat Fe3O4 dan Fe2O3. Untuk studi korosi.")
                         .font(.caption).foregroundColor(.secondary)
                     Button("Gambar Diagram Pourbaix") { doRender() }.buttonStyle(.borderedProminent)
-                    result
+                    PlotResultView(
+                        title: "Diagram Pourbaix - Fe/H2O",
+                        subtitle: "298 K",
+                        hint: "Tekan Gambar Diagram Pourbaix.",
+                        image: image, isLoading: isLoading, errorMessage: errorMessage)
             }.padding(20)
         }
         .onAppear { doRender() }
     }
 
-    func makeView() -> PlotResultView {
-        PlotResultView(
-            title: "Diagram Pourbaix - Fe/H2O",
-            subtitle: "298 K",
-            hint: "Tekan Gambar Diagram Pourbaix.",
-            action: {
-                let dir = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("thermoapp_pb_\(UUID().uuidString).png")
-                setLastPlotURL(dir)
-                do {
-                    let _ = try model.bridge.pourbaix(outPath: dir.path)
-                    return (true, nil)
-                } catch {
-                    return (false, error.localizedDescription)
-                }
-            })
-    }
-
     func doRender() {
-        result = makeView()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { result.render() }
+        image = nil
+        errorMessage = nil
+        isLoading = true
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("thermoapp_pb_\(UUID().uuidString).png")
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let file = try model.bridge.pourbaix(outPath: dir.path)
+                if let img = NSImage(contentsOfFile: file) {
+                    DispatchQueue.main.async {
+                        self.image = img
+                        self.isLoading = false
+                    }
+                } else {
+                    throw EngineError.badOutput("Gagal memuat gambar: \(file)")
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = error.localizedDescription
+                    self.isLoading = false
+                }
+            }
+        }
     }
 }
