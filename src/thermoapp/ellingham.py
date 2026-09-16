@@ -56,15 +56,6 @@ REDUCTANT_REACTIONS: dict[str, tuple[list[str], list[str]]] = {
     "2H₂ → 2H₂O": (["2:H2(g)", "1:O2(g)"], ["2:H2O(g)"]),
 }
 
-# Warna tetapan untuk tiap logam (konsisten dengan plot).
-PALETTE = [
-    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
-    "#393b79", "#637939", "#843c39", "#7b4173", "#8ca252",
-    "#b5cf6b", "#843c39", "#ad494a", "#d6616b",
-]
-
-
 @dataclass
 class EllinghamLine:
     label: str
@@ -127,43 +118,44 @@ def compute_ellingham_lines(
 def plot_ellingham(
     lines: list[EllinghamLine],
     title: str = "Diagram Ellingham",
-    figsize: tuple[float, float] = (9.0, 7.0),
+    figsize: tuple[float, float] = (9.5, 7.0),
 ) -> Any:
     """Render diagram Ellingham menjadi figure matplotlib.
 
-    Oksida digambar sebagai garis padat; reduktor sebagai garis putus-putus
-    tebal berwarna merah (C) atau biru (H₂).
+    Gaya Factsage: oksida = garis padat berwarna (palet kontras), reduktor =
+    garis putus-putus tebal. Legend ditaruh DI LUAR plot agar tidak menutupi
+    kurva; label produk diberikan di ujung garis.
     """
+    from . import plotstyle
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=figsize)
-
     ox_idx = 0
     for line in lines:
         if line.is_reductant:
-            color = "#d62728" if line.label.startswith("C") else "#1f77b4"
-            lw = 2.5
+            color = "#c22b2b" if line.label.startswith("C") else "#2166ac"
+            lw = 3.0
             ls = "--"
         else:
-            color = PALETTE[ox_idx % len(PALETTE)]
+            color = plotstyle.text_color(ox_idx)
             ox_idx += 1
-            lw = 1.6
+            lw = 1.8
             ls = "-"
         ax.plot(line.temperatures, [g / 1000 for g in line.dg],
-                label=line.label, color=color, lw=lw, ls=ls)
-        # Anotasi label di ujung kanan garis
+                label=line.label, color=color, lw=lw, ls=ls, zorder=3)
+        # Anotasi label di ujung kanan garis (tebal, ringkas)
         end_dg = line.dg[-1] / 1000
         ax.annotate(line.label,
                     xy=(line.temperatures[-1], end_dg),
-                    xytext=(8, 0), textcoords="offset points",
-                    fontsize=8, color=color, va="center")
+                    xytext=(7, 0), textcoords="offset points",
+                    fontsize=8.5, color=color, va="center", fontweight="bold")
 
-    ax.axhline(0, color="gray", lw=0.8, ls=":")
-    ax.set_xlabel("Temperatur (K)")
-    ax.set_ylabel("ΔG° (kJ / mol O₂)")
-    ax.set_title(title)
-    ax.grid(True, alpha=0.3)
-    # Legend hanya untuk garis-garis yang punya label (anotasi teks tidak masuk)
-    ax.legend(loc="upper left", fontsize=8, ncol=1)
-    fig.tight_layout()
+    plotstyle.configure_axes(
+        ax, title,
+        "Temperatur (K)",
+        "ΔG° (kJ / mol O₂)",
+        y_zero_line=True,
+    )
+    ax.set_xlim(left=min(l.temperatures[0] for l in lines))
+    plotstyle.legend_outside(fig, ax, fontsize=8)
     return fig

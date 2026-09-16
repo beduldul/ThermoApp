@@ -43,12 +43,6 @@ FORMATION_REACTIONS = [
     ("2Al + 3Cl2 -> 2AlCl3",    "Klorida", ["2:Al(s)", "3:Cl2(g)"], ["2:AlCl3(s)"]),
 ]
 
-CATEGORY_COLORS = {
-    "Oksida": "#d62728", "Karbida": "#1f77b4", "Nitrida": "#2ca02c",
-    "Sulfida": "#ff7f0e", "Klorida": "#9467bd",
-}
-
-
 def formation_labels():
     return [label for label, _, _, _ in FORMATION_REACTIONS]
 
@@ -66,21 +60,31 @@ def compute_gibbs_curves(labels=None, categories=None, t_min=300.0, t_max=1800.0
     return out
 
 
-def plot_gibbs(lines, title="Energi Bebas Gibbs vs Temperatur", figsize=(9.0, 7.0)):
+def plot_gibbs(lines, title="Energi Bebas Gibbs vs Temperatur", figsize=(9.5, 7.0)):
+    from . import plotstyle
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=figsize)
-    for line in lines:
-        color = CATEGORY_COLORS.get(line.category, "#333333")
-        ax.plot(line.temperatures, [g / 1000 for g in line.dg], label=line.label, color=color, lw=1.6)
-        ax.annotate(line.label.split("->")[-1].strip(),
+    for i, line in enumerate(lines):
+        color = plotstyle.CATEGORY_COLORS.get(line.category, "#333333")
+        ax.plot(line.temperatures, [g / 1000 for g in line.dg],
+                label=lbl(line.label), color=color, lw=2.0, zorder=3)
+        ax.annotate(lbl(line.label),
                     xy=(line.temperatures[-1], line.dg[-1] / 1000),
-                    xytext=(6, 0), textcoords="offset points",
-                    fontsize=7, color=color, va="center")
-    ax.axhline(0, color="gray", lw=0.8, ls=":")
-    ax.set_xlabel("Temperatur (K)")
-    ax.set_ylabel("dG (kJ / mol senyawa)")
-    ax.set_title(title)
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="upper left", fontsize=7)
-    fig.tight_layout()
+                    xytext=(7, 0), textcoords="offset points",
+                    fontsize=8, color=color, va="center", fontweight="bold")
+    plotstyle.configure_axes(
+        ax, title,
+        "Temperatur (K)",
+        "ΔG (kJ / mol senyawa)",
+        y_zero_line=True,
+    )
+    ax.set_xlim(left=min(l.temperatures[0] for l in lines))
+    plotstyle.legend_outside(fig, ax, fontsize=7, ncol=1)
     return fig
+
+
+def lbl(label: str) -> str:
+    """Ringkas label reaksi: hanya sisi produk (setelah ->)."""
+    if "->" in label:
+        return label.split("->")[-1].strip()
+    return label

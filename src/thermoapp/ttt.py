@@ -126,8 +126,9 @@ def compute_ttt(
     )
 
 
-def plot_ttt(data: TTTData, figsize: tuple[float, float] = (8.0, 7.0)) -> Any:
+def plot_ttt(data: TTTData, figsize: tuple[float, float] = (8.5, 7.0)) -> Any:
     """Render diagram TTT (sumbu-x log waktu)."""
+    from . import plotstyle
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=figsize)
@@ -139,31 +140,40 @@ def plot_ttt(data: TTTData, figsize: tuple[float, float] = (8.0, 7.0)) -> Any:
     mask_s = np.isfinite(ts)
     mask_f = np.isfinite(tf)
 
-    ax.semilogx(ts[mask_s], Ts[mask_s], color="#d62728", lw=2.0, label="Start (1%)")
-    ax.semilogx(tf[mask_f], Ts[mask_f], color="#1f77b4", lw=2.0, label="Finish (99%)")
+    ax.semilogx(ts[mask_s], Ts[mask_s], color="#c22b2b", lw=2.5,
+                label="Start (1%)", zorder=3)
+    ax.semilogx(tf[mask_f], Ts[mask_f], color="#2166ac", lw=2.5,
+                label="Finish (99%)", zorder=3)
 
     # Garis eutektoid
-    ax.axhline(A1_C, color="gray", lw=1.0, ls="--")
-    ax.text(1e-3, A1_C + 6, "A1 (723°C)", fontsize=9, color="gray")
+    ax.axhline(A1_C, color="#666666", lw=1.2, ls="--")
+    ax.text(1e-3, A1_C + 6, "A1 (723°C)", fontsize=9, color="#444444", fontweight="bold")
 
     # Garis Ms / Mf
-    ax.axhline(data.ms_c, color="purple", lw=1.2, ls=":")
-    ax.axhline(data.mf_c, color="purple", lw=1.2, ls=":")
-    ax.text(1e-3, data.ms_c + 6, f"Ms ({data.ms_c:.0f}°C)", fontsize=9, color="purple")
-    ax.text(1e-3, data.mf_c - 20, f"Mf ({data.mf_c:.0f}°C)", fontsize=9, color="purple")
+    ax.axhline(data.ms_c, color="#6a3d9a", lw=1.4, ls=":")
+    ax.axhline(data.mf_c, color="#6a3d9a", lw=1.4, ls=":")
+    ax.text(1e-3, data.ms_c + 6, f"Ms ({data.ms_c:.0f}°C)", fontsize=9,
+            color="#6a3d9a", fontweight="bold")
+    ax.text(1e-3, data.mf_c - 24, f"Mf ({data.mf_c:.0f}°C)", fontsize=9,
+            color="#6a3d9a", fontweight="bold")
 
     # Region label
     mid = 10 ** (0.5 * (np.log10(ts[mask_s].min() + 1e-12) + np.log10(ts[mask_s].max())))
-    ax.text(mid, (A1_C + data.ms_c) / 2 + 10, "Perlit (di atas ~550°C)\nBainit (di bawah)",
-            fontsize=9, ha="center", va="center", alpha=0.7)
+    ax.text(mid, (A1_C + data.ms_c) / 2 + 12,
+            "Perlit (di atas ~550°C)\nBainit (di bawah)",
+            fontsize=9, ha="center", va="center", alpha=0.75)
     ax.text(mid, (data.ms_c + data.mf_c) / 2 - 20, "Martensit",
-            fontsize=9, ha="center", va="center", color="purple", alpha=0.8)
+            fontsize=9, ha="center", va="center", color="#6a3d9a", alpha=0.85,
+            fontweight="bold")
 
-    ax.set_xlabel("Waktu (detik)")
-    ax.set_ylabel("Temperatur (°C)")
-    ax.set_title(f"Diagram TTT — {data.steel_label}")
+    plotstyle.configure_axes(
+        ax,
+        f"Diagram TTT — {data.steel_label}",
+        "Waktu (detik)",
+        "Temperatur (°C)",
+        xlog=True,
+    )
     ax.set_ylim(bottom=max(data.mf_c - 40, 0), top=A1_C + 30)
-    ax.grid(True, which="both", alpha=0.3)
-    ax.legend(loc="lower right", fontsize=9)
-    fig.tight_layout()
+    ax.xaxis.set_major_formatter(plt.LogFormatterMathtext())
+    plotstyle.legend_outside(fig, ax, fontsize=9)
     return fig

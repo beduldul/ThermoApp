@@ -504,9 +504,14 @@ def compute_binary_diagram(
         # fallback tanpa VA
         ax = binplot(db, [c1, c2], meta_db["phases"], conds)
 
-    ax.set_xlabel(f"Fraksi mol {c2}")
-    ax.set_ylabel("Temperatur (K)")
-    ax.set_title(f"Diagram Fasa Biner {c1}–{c2} ({db_id})")
+    from . import plotstyle
+    plotstyle.configure_axes(
+        ax,
+        f"Diagram Fasa Biner {c1}–{c2} ({db_id})",
+        f"Fraksi mol {c2}",
+        "Temperatur (K)",
+    )
+    plotstyle.legend_outside(ax.get_figure(), ax, fontsize=8)
     fig = ax.get_figure()
 
     bd = BinaryDiagram(

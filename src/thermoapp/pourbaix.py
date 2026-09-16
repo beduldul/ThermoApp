@@ -87,34 +87,41 @@ def compute_pourbaix(pH_min=0.0, pH_max=14.0, n=200):
     }
 
 
-def plot_pourbaix(data, figsize=(8.0, 7.0)):
+def plot_pourbaix(data, figsize=(8.5, 7.0)):
+    from . import plotstyle
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=figsize)
 
     pH = np.asarray(data["pH"])
-    ax.plot(pH, data["e_o2"], color="blue", lw=1.5, label="O2/H2O (batas air)")
-    ax.plot(pH, data["e_h2"], color="blue", lw=1.5, ls="--", label="H2O/H2")
 
-    ax.plot(pH, data["e_fe_fe2"], color="darkred", lw=2.0, label="Fe/Fe2+")
-    ax.plot(pH, data["e_fe2_fe3"], color="darkred", lw=2.0, ls="--", label="Fe2+/Fe3+")
+    # Batas air (biru)
+    ax.plot(pH, data["e_o2"], color="#2166ac", lw=2.0, label="O₂/H₂O")
+    ax.plot(pH, data["e_h2"], color="#2166ac", lw=2.0, ls="--", label="H₂O/H₂")
 
-    ax.plot(pH, data["e_fe3o4_fe"], color="darkgreen", lw=1.5, ls=":",
-            label="Fe3O4/Fe")
-    ax.plot(pH, data["e_fe2_fe3o4"], color="orange", lw=1.5,
-            label="Fe2+/Fe3O4")
-    ax.plot(pH, data["e_fe2_fe2o3"], color="purple", lw=1.5, ls="--",
-            label="Fe2+/Fe2O3")
-    ax.plot(pH, data["e_fe3o4_fe2o3"], color="brown", lw=1.5, ls=":",
-            label="Fe3O4/Fe2O3")
+    # Logam terlarut (merah)
+    ax.plot(pH, data["e_fe_fe2"], color="#c22b2b", lw=2.5, label="Fe / Fe²⁺")
+    ax.plot(pH, data["e_fe2_fe3"], color="#c22b2b", lw=2.5, ls="--", label="Fe²⁺ / Fe³⁺")
 
-    ax.axhline(0, color="gray", lw=0.6, ls=":")
+    # Fasa padat oksida (hijau)
+    ax.plot(pH, data["e_fe3o4_fe"], color="#2e8b57", lw=2.0, ls=":",
+            label="Fe₃O₄ / Fe")
+    ax.plot(pH, data["e_fe2_fe3o4"], color="#e08214", lw=2.0, label="Fe²⁺ / Fe₃O₄")
+    ax.plot(pH, data["e_fe2_fe2o3"], color="#6a3d9a", lw=2.0, ls="--",
+            label="Fe²⁺ / Fe₂O₃")
+    ax.plot(pH, data["e_fe3o4_fe2o3"], color="#a0522d", lw=2.0, ls=":",
+            label="Fe₃O₄ / Fe₂O₃")
 
-    ax.set_xlabel("pH")
-    ax.set_ylabel("Potensial E (V vs SHE)")
-    ax.set_title("Diagram Pourbaix - Fe/H2O (298 K)")
+    # Rona daerah (bubble) air — khas diagram Pourbaix
+    ax.fill_between(pH, data["e_h2"], data["e_o2"], color="#2166ac",
+                    alpha=0.05, label="Stabil air", zorder=0)
+
+    plotstyle.configure_axes(
+        ax,
+        "Diagram Pourbaix – Fe/H₂O (298 K)",
+        "pH",
+        "Potensial E (V vs SHE)",
+    )
     ax.set_ylim(-1.2, 1.8)
     ax.set_xlim(0, 14)
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="upper left", fontsize=8)
-    fig.tight_layout()
+    plotstyle.legend_outside(fig, ax, fontsize=8)
     return fig
