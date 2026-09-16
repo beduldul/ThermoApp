@@ -48,14 +48,19 @@ final class AppModel: ObservableObject {
     }
 
     func refreshDatabases() {
-        do {
-            let raw = try bridge.databases()
-            DispatchQueue.main.async {
-                self.databases = raw.compactMap { DatabaseInfo($0) }
+        // JANGAN blokir thread utama: boot daemon pertama (ekstraksi PyInstaller
+        // + import pycalphad + cache font matplotlib) bisa makan ~10 detik.
+        // Jalankan di queue latar agar UI langsung tampil responsif, lalu
+        // perbarui hasilnya di main thread.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let raw: [[String: Any]]
+            do {
+                raw = try self?.bridge.databases() ?? []
+            } catch {
+                raw = []
             }
-        } catch {
             DispatchQueue.main.async {
-                self.databases = []
+                self?.databases = raw.compactMap { DatabaseInfo($0) }
             }
         }
     }

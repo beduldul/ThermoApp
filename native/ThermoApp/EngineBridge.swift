@@ -38,6 +38,8 @@ final class EngineDaemon {
     private var pending: [Int: (Result<[String: Any], Error>) -> Void] = [:]
     private var started = false
     private var usable = true
+    private var stdoutBuffer = Data()   // buffer antar-chunk utk baris utuh
+    private let bufferLock = NSLock()
 
     init(executable: String, devScript: String = "") {
         self.executable = executable
@@ -66,17 +68,29 @@ final class EngineDaemon {
 
         // Pembaca stdout: satu-satunya thread yang membaca; memanggil handler
         // sesuai id (boleh keluar tidak berurutan).
+        // PENTING: availableData bisa memecah satu baris JSON — jadi baris
+        // ditumpuk di buffer dan hanya baris yang diakhiri '\n' diproses.
         stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             guard let self = self else { return }
-            let data = handle.availableData
-            guard !data.isEmpty else {
+            let chunk = handle.availableData
+            if chunk.isEmpty {
+                self.stdoutBuffer = Data()
                 self.terminate()
                 return
             }
-            guard let text = String(data: data, encoding: .utf8) else { return }
-            for line in text.split(separator: "\n") {
-                self.handle(line: String(line))
+            // pelindung akses buffering
+            self.bufferLock.lock()
+            self.stdoutBuffer.append(chunk)
+            var lines: [String] = []
+            while let nl = self.stdoutBuffer.firstIndex(of: 0x0A) {
+                let lineData = self.stdoutBuffer.subdata(in: self.stdoutBuffer.startIndex..<nl)
+                self.stdoutBuffer.removeSubrange(self.stdoutBuffer.startIndex...nl)
+                if let s = String(data: lineData, encoding: .utf8), !s.isEmpty {
+                    lines.append(s)
+                }
             }
+            self.bufferLock.unlock()
+            for line in lines { self.handle(line: line) }
         }
         started = true
     }
