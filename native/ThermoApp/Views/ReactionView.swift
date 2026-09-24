@@ -15,7 +15,7 @@ struct ReactionView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("🧪 Termodinamika Reaksi")
+                Text("Termodinamika Reaksi")
                     .font(.title.bold())
                 Text("ΔG, ΔH, ΔS untuk reaksi stoikiometri, dengan data termokimia standar (ΔHf, S298, Cp) dan koreksi Kirchhoff.")
                     .font(.caption).foregroundColor(.secondary)
@@ -75,7 +75,7 @@ struct ReactionView: View {
                             Text("Hasil akan tampil di sini.")
                                 .font(.headline)
                             Text(
-                                "Contoh: FeO(s) + C(s,grafit) → Fe(s) + CO(g).\n"
+                                "Contoh: FeO(s) + C(s,grafit) -> Fe(s) + CO(g).\n"
                                 + "Reaksi reduksi ini spontan pada suhu tinggi (ΔG < 0)."
                             )
                             .font(.caption).foregroundColor(.secondary)

@@ -17,7 +17,7 @@ struct EquilibView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                header("⚖️ Equilib — Kesetimbangan Fasa",
+                header("Equilib — Kesetimbangan Fasa",
                       "Menghitung fasa setimbang via minimasi energi Gibbs (CALPHAD).")
 
                 HStack(alignment: .top, spacing: 20) {
@@ -146,8 +146,8 @@ struct EquilibView: View {
                 Text("Hasil akan tampil di sini.")
                     .font(.headline)
                 Text(
-                    "Contoh: Database Al-Ni, komposisi Al=0.5, Ni=0.5, T=1700 K → fasa LIQUID. "
-                    + "T=1000 K → fasa padat AL3NI2."
+                    "Contoh: Database Al-Ni, komposisi Al=0.5, Ni=0.5, T=1700 K -> fasa LIQUID. "
+                    + "T=1000 K -> fasa padat AL3NI2."
                 )
                 .font(.caption)
                 .foregroundColor(.secondary)

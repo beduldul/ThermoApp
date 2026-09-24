@@ -1,17 +1,17 @@
 """
 Diagram Ellingham — ΔG° vs T untuk reaksi oksidasi logam (per mol O₂).
 
-Setiap reaksi dinyatakan sebagai:  (2x/y)·M + O₂ → (2/y)·MₓO_y
+Setiap reaksi dinyatakan sebagai:  (2x/y)·M + O₂ -> (2/y)·MₓO_y
 dengan ΔG° per mol O₂. Semakin negatif (semakin rendah garis), semakin
 stabil oksidanya dan semakin kuat reduktor logamnya.
 
 Garis reduktor karbon:
-    C + O₂ → CO₂      (memotong menurun/landai)
-    2C + O₂ → 2CO     (ΔG menurun dengan T — penting di metalurgi ekstraksi)
+    C + O₂ -> CO₂      (memotong menurun/landai)
+    2C + O₂ -> 2CO     (ΔG menurun dengan T — penting di metalurgi ekstraksi)
 Garis reduktor hidrogen:
-    2H₂ + O₂ → 2H₂O
+    2H₂ + O₂ -> 2H₂O
 
-Kegunaan praktis: suhu di mana garis 2C+O₂→2CO berada DI BAWAH garis
+Kegunaan praktis: suhu di mana garis 2C+O₂->2CO berada DI BAWAH garis
 oksida tertentu = suhu di mana karbon dapat mereduksi oksida tersebut.
 """
 
@@ -28,32 +28,32 @@ from . import engine
 # Koefisien dibulatkan ke pecahan yang paling sederhana.
 OXIDATION_REACTIONS: list[tuple[str, list[str], list[str]]] = [
     # (nama logam, reaktan, produk)
-    ("4/3Fe → 2/3Fe₂O₃",  ["1.3333:Fe(s)", "1:O2(g)"], ["0.6667:Fe2O3(s)"]),
-    ("3/2Fe → 1/2Fe₃O₄",  ["1.5:Fe(s)", "1:O2(g)"], ["0.5:Fe3O4(s)"]),
-    ("2Fe → 2FeO",        ["2:Fe(s)", "1:O2(g)"], ["2:FeO(s)"]),
-    ("4/3Al → 2/3Al₂O₃",  ["1.3333:Al(s)", "1:O2(g)"], ["0.6667:Al2O3(s)"]),
-    ("Si → SiO₂",         ["1:Si(s)", "1:O2(g)"], ["1:SiO2(s,quartz)"]),
-    ("Ti → TiO₂",         ["1:Ti(s)", "1:O2(g)"], ["1:TiO2(s,ru)"]),
-    ("2Mg → 2MgO",        ["2:Mg(s)", "1:O2(g)"], ["2:MgO(s)"]),
-    ("2Ca → 2CaO",        ["2:Ca(s)", "1:O2(g)"], ["2:CaO(s)"]),
-    ("2Mn → 2MnO",        ["2:Mn(s)", "1:O2(g)"], ["2:MnO(s)"]),
-    ("4/3Cr → 2/3Cr₂O₃",  ["1.3333:Cr(s)", "1:O2(g)"], ["0.6667:Cr2O3(s)"]),
-    ("4/3V → 2/3V₂O₃",    ["1.3333:V(s)", "1:O2(g)"], ["0.6667:V2O3(s)"]),
-    ("Mo → MoO₃",         ["1:Mo(s)", "1:O2(g)"], ["1:MoO3(s)"]),
-    ("W → WO₃",           ["1:W(s)", "1:O2(g)"], ["1:WO3(s)"]),
-    ("2Co → 2CoO",        ["2:Co(s)", "1:O2(g)"], ["2:CoO(s)"]),
-    ("2Ni → 2NiO",        ["2:Ni(s)", "1:O2(g)"], ["2:NiO(s)"]),
-    ("Sn → SnO₂",         ["1:Sn(s)", "1:O2(g)"], ["1:SnO2(s)"]),
-    ("2Pb → 2PbO",        ["2:Pb(s)", "1:O2(g)"], ["2:PbO(s,red)"]),
-    ("2Zn → 2ZnO",        ["2:Zn(s)", "1:O2(g)"], ["2:ZnO(s)"]),
-    ("4Cu → 2Cu₂O",       ["4:Cu(s)", "1:O2(g)"], ["2:Cu2O(s)"]),
+    ("4/3Fe -> 2/3Fe₂O₃",  ["1.3333:Fe(s)", "1:O2(g)"], ["0.6667:Fe2O3(s)"]),
+    ("3/2Fe -> 1/2Fe₃O₄",  ["1.5:Fe(s)", "1:O2(g)"], ["0.5:Fe3O4(s)"]),
+    ("2Fe -> 2FeO",        ["2:Fe(s)", "1:O2(g)"], ["2:FeO(s)"]),
+    ("4/3Al -> 2/3Al₂O₃",  ["1.3333:Al(s)", "1:O2(g)"], ["0.6667:Al2O3(s)"]),
+    ("Si -> SiO₂",         ["1:Si(s)", "1:O2(g)"], ["1:SiO2(s,quartz)"]),
+    ("Ti -> TiO₂",         ["1:Ti(s)", "1:O2(g)"], ["1:TiO2(s,ru)"]),
+    ("2Mg -> 2MgO",        ["2:Mg(s)", "1:O2(g)"], ["2:MgO(s)"]),
+    ("2Ca -> 2CaO",        ["2:Ca(s)", "1:O2(g)"], ["2:CaO(s)"]),
+    ("2Mn -> 2MnO",        ["2:Mn(s)", "1:O2(g)"], ["2:MnO(s)"]),
+    ("4/3Cr -> 2/3Cr₂O₃",  ["1.3333:Cr(s)", "1:O2(g)"], ["0.6667:Cr2O3(s)"]),
+    ("4/3V -> 2/3V₂O₃",    ["1.3333:V(s)", "1:O2(g)"], ["0.6667:V2O3(s)"]),
+    ("Mo -> MoO₃",         ["1:Mo(s)", "1:O2(g)"], ["1:MoO3(s)"]),
+    ("W -> WO₃",           ["1:W(s)", "1:O2(g)"], ["1:WO3(s)"]),
+    ("2Co -> 2CoO",        ["2:Co(s)", "1:O2(g)"], ["2:CoO(s)"]),
+    ("2Ni -> 2NiO",        ["2:Ni(s)", "1:O2(g)"], ["2:NiO(s)"]),
+    ("Sn -> SnO₂",         ["1:Sn(s)", "1:O2(g)"], ["1:SnO2(s)"]),
+    ("2Pb -> 2PbO",        ["2:Pb(s)", "1:O2(g)"], ["2:PbO(s,red)"]),
+    ("2Zn -> 2ZnO",        ["2:Zn(s)", "1:O2(g)"], ["2:ZnO(s)"]),
+    ("4Cu -> 2Cu₂O",       ["4:Cu(s)", "1:O2(g)"], ["2:Cu2O(s)"]),
 ]
 
 # Garis reduktor (opsional, ditampilkan tersendiri).
 REDUCTANT_REACTIONS: dict[str, tuple[list[str], list[str]]] = {
-    "C → CO₂":   (["1:C(s,grafit)", "1:O2(g)"], ["1:CO2(g)"]),
-    "2C → 2CO":  (["2:C(s,grafit)", "1:O2(g)"], ["2:CO(g)"]),
-    "2H₂ → 2H₂O": (["2:H2(g)", "1:O2(g)"], ["2:H2O(g)"]),
+    "C -> CO₂":   (["1:C(s,grafit)", "1:O2(g)"], ["1:CO2(g)"]),
+    "2C -> 2CO":  (["2:C(s,grafit)", "1:O2(g)"], ["2:CO(g)"]),
+    "2H₂ -> 2H₂O": (["2:H2(g)", "1:O2(g)"], ["2:H2O(g)"]),
 }
 
 @dataclass
@@ -85,7 +85,7 @@ def compute_ellingham_lines(
     Parameters
     ----------
     oxidation : label oksidasi yang digambar (None = semua)
-    reductants : label reduktor yang digambar (None = C→CO dan 2C→2CO)
+    reductants : label reduktor yang digambar (None = C->CO dan 2C->2CO)
 
     Returns
     -------
@@ -94,7 +94,7 @@ def compute_ellingham_lines(
     if oxidation is None:
         oxidation = [label for label, _, _ in OXIDATION_REACTIONS]
     if reductants is None:
-        reductants = ["C → CO₂", "2C → 2CO"]
+        reductants = ["C -> CO₂", "2C -> 2CO"]
 
     temps = list(np.linspace(t_min, t_max, n_points))
     lines: list[EllinghamLine] = []

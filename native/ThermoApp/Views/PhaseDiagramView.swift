@@ -19,7 +19,7 @@ struct PhaseDiagramView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("📈 Diagram Fasa Biner (T–X)")
+                Text("Diagram Fasa Biner (T–X)")
                     .font(.title.bold())
                 Text("Kurva likuidus/solidus dan garis invarian dari database CALPHAD, dihitung dengan algoritme ZPF boundary.")
                     .font(.caption).foregroundColor(.secondary)

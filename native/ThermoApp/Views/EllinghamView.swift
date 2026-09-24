@@ -5,15 +5,15 @@ struct EllinghamView: View {
     @EnvironmentObject var model: AppModel
 
     @State private var oxids = [
-        "4/3Fe → 2/3Fe₂O₃","3/2Fe → 1/2Fe₃O₄","2Fe → 2FeO",
-        "4/3Al → 2/3Al₂O₃","Si → SiO₂","Ti → TiO₂","2Mg → 2MgO",
-        "2Ca → 2CaO","2Mn → 2MnO","4/3Cr → 2/3Cr₂O₃","4/3V → 2/3V₂O₃",
-        "Mo → MoO₃","W → WO₃","2Co → 2CoO","2Ni → 2NiO",
-        "Sn → SnO₂","2Pb → 2PbO","2Zn → 2ZnO","4Cu → 2Cu₂O",
+        "4/3Fe -> 2/3Fe₂O₃","3/2Fe -> 1/2Fe₃O₄","2Fe -> 2FeO",
+        "4/3Al -> 2/3Al₂O₃","Si -> SiO₂","Ti -> TiO₂","2Mg -> 2MgO",
+        "2Ca -> 2CaO","2Mn -> 2MnO","4/3Cr -> 2/3Cr₂O₃","4/3V -> 2/3V₂O₃",
+        "Mo -> MoO₃","W -> WO₃","2Co -> 2CoO","2Ni -> 2NiO",
+        "Sn -> SnO₂","2Pb -> 2PbO","2Zn -> 2ZnO","4Cu -> 2Cu₂O",
     ]
-    @State private var reds = ["C → CO₂", "2C → 2CO", "2H₂ → 2H₂O"]
+    @State private var reds = ["C -> CO₂", "2C -> 2CO", "2H₂ -> 2H₂O"]
     @State private var selected = Set<String>()
-    @State private var selectedReds = Set<String>(["C → CO₂", "2C → 2CO"])
+    @State private var selectedReds = Set<String>(["C -> CO₂", "2C -> 2CO"])
     @State private var tmin = 400.0
     @State private var tmax = 1800.0
     @State private var image: NSImage?
@@ -21,7 +21,7 @@ struct EllinghamView: View {
     @State private var errorMessage: String?
 
     init() {
-        _selected = State(initialValue: ["2Fe → 2FeO", "4/3Al → 2/3Al₂O₃", "Si → SiO₂"])
+        _selected = State(initialValue: ["2Fe -> 2FeO", "4/3Al -> 2/3Al₂O₃", "Si -> SiO₂"])
     }
 
     /// Ambil label terkini dari engine (jauh lebih tangguh terhadap perubahan
@@ -54,7 +54,7 @@ struct EllinghamView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Ellingham Diagram (ΔG vs T)")
                     .font(.title.bold())
-                Text("Stabilitas oksida per mol O₂. Garis reduktor karbon (2C → 2CO) menurun terhadap suhu; logam dapat mereduksi oksida bila garis karbon berada di bawah garis oksida.")
+                Text("Stabilitas oksida per mol O₂. Garis reduktor karbon (2C -> 2CO) menurun terhadap suhu; logam dapat mereduksi oksida bila garis karbon berada di bawah garis oksida.")
                     .font(.caption).foregroundColor(.secondary)
 
                 Text("Pilih oksida").font(.headline)

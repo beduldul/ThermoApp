@@ -13,13 +13,13 @@ pustaka yang dipakai luas di riset dan pendidikan termodinamika material.
 
 ---
 
-## ✨ Fitur
+## Fitur
 
 | Modul | Fungsi | Analog dengan |
 |-------|--------|---------------|
-| **⚖️ Equilib** | Kesetimbangan fasa via minimasi energi Gibbs | modul Equilib |
-| **🧪 Reaksi** | ΔG, ΔH, ΔS reaksi stoikiometri (koreksi Kirchhoff) | modul Reaktion |
-| **📈 Diagram Fasa Biner** | Kurva likuidus/solidus T–X (ZPF boundaries) | modul Phase Diagram |
+| **Equilib** | Kesetimbangan fasa via minimasi energi Gibbs | modul Equilib |
+| **Reaksi** | ΔG, ΔH, ΔS reaksi stoikiometri (koreksi Kirchhoff) | modul Reaktion |
+| **Diagram Fasa Biner** | Kurva likuidus/solidus T–X (ZPF boundaries) | modul Phase Diagram |
 
 - Aplikasi **macOS native** (SwiftUI) — jendela, menu, dan tombol khas macOS.
 - Mesin perhitungan Python (pycalphad) dibundel sebagai runtime mandiri,
@@ -28,7 +28,7 @@ pustaka yang dipakai luas di riset dan pendidikan termodinamika material.
 
 ---
 
-## 🚀 Cara memakai (untuk end user)
+## Cara memakai (untuk end user)
 
 ### Instal
 1. Unduh `ThermoApp.dmg`.
@@ -36,8 +36,8 @@ pustaka yang dipakai luas di riset dan pendidikan termodinamika material.
    (atau jalankan langsung dari DMG).
 3. Saat pertama dibuka, macOS mungkin menampilkan peringatan "app from an
    unidentified developer" karena ditandatangani ad-hoc (tanpa Developer ID):
-   - Klik kanan `ThermoApp.app` → **Open** → **Open**.
-   - atau: System Settings → Privacy & Security → "Open Anyway".
+   - Klik kanan `ThermoApp.app` -> **Open** -> **Open**.
+   - atau: System Settings -> Privacy & Security -> "Open Anyway".
 
 ### Gunakan
 1. **Equilib** — pilih database, atur komposisi & suhu, klik `Hitung Kesetimbangan`.
@@ -45,13 +45,13 @@ pustaka yang dipakai luas di riset dan pendidikan termodinamika material.
 3. **Diagram Fasa** — pilih database & dua elemen, atur rentang suhu, klik `Gambar Diagram Fasa`.
 
 ### Contoh cepat
-- **Equilib**: database `Al-Ni`, Al=0.5, Ni=0.5, T=1700 K → fasa `LIQUID`; T=1000 K → fasa padat.
-- **Reaksi**: `FeO(s) + C(s,grafit) → Fe(s) + CO(g)` @1200 K → spontan (ΔG < 0).
-- **Diagram**: database `Pb-Sn`, elemen Pb & Sn → kurva eutektik di sekitar 456 K.
+- **Equilib**: database `Al-Ni`, Al=0.5, Ni=0.5, T=1700 K -> fasa `LIQUID`; T=1000 K -> fasa padat.
+- **Reaksi**: `FeO(s) + C(s,grafit) -> Fe(s) + CO(g)` @1200 K -> spontan (ΔG < 0).
+- **Diagram**: database `Pb-Sn`, elemen Pb & Sn -> kurva eutektik di sekitar 456 K.
 
 ---
 
-## 🛠️ Pengembangan (build dari source)
+## Pengembangan (build dari source)
 
 ### Prasyarat
 - macOS 14+ (arm64 / Apple Silicon)
@@ -88,7 +88,7 @@ open out/ThermoApp.app         # jalankan aplikasi
 
 ---
 
-## 📁 Struktur proyek
+## Struktur proyek
 
 ```
 thermoapp/
@@ -111,7 +111,7 @@ thermoapp/
 
 ---
 
-## 🧮 Mesin perhitungan
+## Mesin perhitungan
 
 ### Kesetimbangan fasa
 Menggunakan `pycalphad.equilibrium` — minimasi energi Gibbs global. Input:
@@ -121,7 +121,7 @@ komposisi tiap fasa, energi Gibbs total.
 ### Termodinamika reaksi
 ΔG(T), ΔH(T), ΔS(T) dihitung dari data termokimia standar (ΔHf, S298, Cp)
 dengan koreksi **Kirchhoff**:
-- Σνᵢ·Xᵢ → Σνⱼ·Xⱼ
+- Σνᵢ·Xᵢ -> Σνⱼ·Xⱼ
 - ΔH(T)=ΔH₀+∫ΔCp dT ; ΔS(T)=ΔS₀+∫(ΔCp/T)dT ; ΔG=ΔH−TΔS
 
 ### Diagram fasa biner
@@ -130,20 +130,20 @@ Algoritme **ZPF (Zero Phase Fraction) boundary** dari pycalphad
 
 ---
 
-## 🔍 Verifikasi
+## Verifikasi
 
 Suite uji menjalankan 5 kasus dengan nilai fisik yang diperiksa:
-1. Al-Ni @1700 K → `LIQUID`
-2. Al-Ni @1000 K → bukan cair
-3. `FeO + C → Fe + CO` @1200 K → ΔG ≈ **−18.9 kJ** (spontan)
-4. `FeO → Fe + ½O₂` @1200 K → ΔG > 0 (tidak spontan)
-5. Diagram Pb-Sn → PNG kurva eutektik ter-generate
+1. Al-Ni @1700 K -> `LIQUID`
+2. Al-Ni @1000 K -> bukan cair
+3. `FeO + C -> Fe + CO` @1200 K -> ΔG ≈ **−18.9 kJ** (spontan)
+4. `FeO -> Fe + ½O₂` @1200 K -> ΔG > 0 (tidak spontan)
+5. Diagram Pb-Sn -> PNG kurva eutektik ter-generate
 
 Semua lulus (5/5).
 
 ---
 
-## 📚 Database CALPHAD dibundel
+## Database CALPHAD dibundel
 
 | ID | Sistem |
 |----|--------|
@@ -162,7 +162,7 @@ di `src/thermoapp/engine.py`.
 
 ---
 
-## ⚠️ Catatan
+## Catatan
 - **Bukan clone FactSage.** Untuk kerja produksi/verifikasi yang mensyaratkan
   FactSage asli, gunakan FactSage (Windows) — aplikasi ini adalah alternatif
   open-source yang sah untuk keperluan pembelajaran.
@@ -170,7 +170,7 @@ di `src/thermoapp/engine.py`.
 - Database bundled adalah contoh akademik; untuk hasil kuantitatif yang harus
   dipertanggungjawabkan, gunakan database tervalidasi yang sesuai.
 
-## 📄 Lisensi
+## Lisensi
 MIT — silakan gunakan, modifikasi, dan bagikan.
 
 ---
